@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Merge Axolotls!</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    text-align: center;
+    background: linear-gradient(135deg, #e0f7fa, #c5cae9);
+    color: #333;
+    padding: 20px;
+    margin: 0;
+  }
+  h1 {
+      margin-bottom: 5px;
+  }
+  #gameArea {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  #stats {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(5px);
+    padding: 10px 20px;
+    margin-bottom: 20px;
+    border-radius: 20px;
+    display: inline-block;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    font-size: 1.2em;
+  }
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(3, 100px);
+    grid-gap: 12px;
+    justify-content: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(5px);
+    border-radius: 20px;
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+  }
+  #nameInputContainer {
+    margin-left: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(5px);
+    padding: 15px;
+    border-radius: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  #nameInputContainer label {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #444;
+  }
+  #nameInputContainer input {
+    padding: 8px;
+    width: 120px;
+    margin-top: 10px;
+    border-radius: 10px;
+    border: 2px solid #aaa;
+    text-align: center;
+    font-size: 1em;
+  }
+  .cell {
+    width: 100px;
+    height: 100px;
+    background: white;
+    border: 3px solid #6c7e97;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  .cell:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+  }
+  .cell.selected {
+      border: 3px solid #ff4d4d;
+  }
+  .axolotl-svg {
+    width: 50px;
+    height: 50px;
+  }
+  button {
+    display: block;
+    width: 300px;
+    margin: 15px auto;
+    padding: 12px 20px;
+    font-size: 1.1em;
+    font-weight: bold;
+    border-radius: 25px;
+    border: none;
+    cursor: pointer;
+    color: white;
+    background-size: 200% auto;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  }
+  .buy-axolotl {
+    background-image: linear-gradient(to right, #6a11cb 0%, #2575fc 50%, #6a11cb 100%);
+  }
+  .buy-ingot {
+    background-image: linear-gradient(to right, #ff7e5f 0%, #feb47b 50%, #ff7e5f 100%);
+  }
+  .buy-auto-merge {
+    background-image: linear-gradient(to right, #e87b28 0%, #d85c15 50%, #e87b28 100%);
+  }
+  .expand-grid {
+    background-image: linear-gradient(to right, #00c6ff 0%, #0072ff 50%, #00c6ff 100%);
+  }
+  .save-load-btn {
+    background-image: linear-gradient(to right, #11998e 0%, #38ef7d 50%, #11998e 100%);
+  }
+  .reset-btn {
+    background-image: linear-gradient(to right, #ff416c 0%, #ff4b2b 50%, #ff416c 100%);
+  }
+  .change-mind-btn {
+    background-image: linear-gradient(to right, #4CAF50 0%, #8BC34A 50%, #4CAF50 100%);
+  }
+  button:hover {
+    background-position: right center;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  }
+  button:disabled {
+    background-image: linear-gradient(to right, #c0c0c0 0%, #a0a0a0 50%, #c0c0c0 100%);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transform: translateY(0);
+    cursor: not-allowed;
+  }
+  
+  /* Additional styling for button groups */
+  .button-group {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .button-group button {
+      width: 200px;
+      margin: 0;
+  }
+  #save-load-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* New save feedback message */
+  #saveFeedback {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 10px;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+      pointer-events: none;
+      font-size: 1em;
+  }
+  #saveFeedback.visible {
+      opacity: 1;
+  }
+</style>
+</head>
+<body>
+
+<h1>Merge Axolotls!</h1>
+<div id="stats">
+  Coins: <span id="coins">50</span> |
+  Passive Income: <span id="income">0</span>/sec |
+  🪙 <span id="ingots">0</span>
+</div>
+
+<div id="gameArea">
+  <div id="grid"></div>
+  <div id="nameInputContainer">
+    <label for="axolotlNameInput">Name Axolotls</label>
+    <input type="text" id="axolotlNameInput" maxlength="7" placeholder="Name">
+  </div>
+</div>
+
+<button id="buyAxolotlBtn" class="buy-axolotl" onclick="buyAxolotl()">Buy Lvl 1 Axolotl (10 Coins)</button>
+<div class="button-group">
+  <button id="buyIngotBtn" class="buy-ingot" onclick="buyIngot()">Buy Gold Ingot (1000 Coins)</button>
+  <button id="buy10IngotsBtn" class="buy-ingot" onclick="buy10Ingots()">Buy 10 Ingots (9750 Coins)</button>
+  <button id="buy100IngotsBtn" class="buy-ingot" onclick="buy100Ingots()">Buy 100 Ingots (95000 Coins)</button>
+</div>
+<button id="expandGridBtn" class="expand-grid" onclick="expandGrid()">Expand Grid</button>
+<button id="autoMergeBtn" class="buy-auto-merge" onclick="buyAutoMerge()">Buy Auto Merge Lvl 1 (1000 Ingots)</button>
+
+<h3>Save & Load</h3>
+<div id="save-load-group">
+    <div id="save-buttons-group" class="button-group" style="display:none;">
+        <button id="saveBtn" class="save-load-btn" onclick="manualSaveGame()">Save to Device</button>
+        <button class="save-load-btn" onclick="exportData()">Export Save File</button>
+        <button class="save-load-btn" onclick="document.getElementById('importFile').click()">Import Save File</button>
+        <input type="file" id="importFile" style="display:none" onchange="importData(event)">
+    </div>
+    <button id="changeMindBtn" class="change-mind-btn" onclick="enableSaving()" style="display:none;">Change My Mind</button>
+</div>
+<button class="reset-btn" onclick="resetGame()">Reset Game</button>
+
+<div id="saveFeedback">Game Saved!</div>
+
+<script>
+const colors = ["#4CAF50", "#2196F3", "#FF9800", "#9C27B0", "#E91E63", "#FFEB3B", "#00BCD4", "#795548", "#8BC34A", "#F44336"];
+let gridSize = 3;
+let grid = new Array(gridSize * gridSize).fill(0);
+let coins = 50;
+let ingots = 0;
+let selected = null;
+let axolotlName = "";
+let autoMergeLevel = 0;
+let autoMergeInterval = null;
+const maxPassive = 5000;
+let consentGiven = false;
+let autoSaveInterval = null;
+
+const cost_axolotl = 10;
+const cost_ingot = 1000;
+const cost_10_ingots = 9750;
+const cost_100_ingots = 95000;
+const expand_costs = { 3: 100, 4: 500 };
+const autoMerge_costs = [1000, 2000, 5000];
+
+const gridDiv = document.getElementById('grid');
+const coinsSpan = document.getElementById('coins');
+const incomeSpan = document.getElementById('income');
+const ingotsSpan = document.getElementById('ingots');
+const axolotlNameInput = document.getElementById("axolotlNameInput");
+const buyAxolotlBtn = document.getElementById('buyAxolotlBtn');
+const buyIngotBtn = document.getElementById('buyIngotBtn');
+const buy10IngotsBtn = document.getElementById('buy10IngotsBtn');
+const buy100IngotsBtn = document.getElementById('buy100IngotsBtn');
+const expandGridBtn = document.getElementById('expandGridBtn');
+const autoMergeBtn = document.getElementById('autoMergeBtn');
+const saveButtonsGroup = document.getElementById('save-buttons-group');
+const changeMindBtn = document.getElementById('changeMindBtn');
+const saveFeedback = document.getElementById('saveFeedback');
+
+axolotlNameInput.addEventListener("input", e => {
+  axolotlName = e.target.value.slice(0,7);
+  renderGrid();
+});
+
+function getAxolotlSVG(color) {
+  return `
+    <svg class="axolotl-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="32" cy="32" r="16" fill="${color}" stroke="black" stroke-width="2"/>
+      <line x1="16" y1="32" x2="0" y2="32" stroke="black" stroke-width="2"/>
+      <line x1="48" y1="32" x2="64" y2="32" stroke="black" stroke-width="2"/>
+      <circle cx="26" cy="28" r="3" fill="black"/>
+      <circle cx="38" cy="28" r="3" fill="black"/>
+      <path d="M26 38 Q32 46 38 38" stroke="black" stroke-width="2" fill="none"/>
+    </svg>`;
+}
+
+function renderGrid() {
+  gridDiv.style.gridTemplateColumns = `repeat(${gridSize}, 100px)`;
+  gridDiv.innerHTML = '';
+  grid.forEach((level, idx) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    if (level > 0) {
+      let color = colors[(level - 1) % colors.length];
+      cell.innerHTML = getAxolotlSVG(color) + `<div>${axolotlName}-${level}</div>`;
+    }
+    cell.onclick = () => selectCell(idx, cell);
+    gridDiv.appendChild(cell);
+  });
+  if (selected !== null) {
+      gridDiv.children[selected].classList.add("selected");
+  }
+}
+
+function selectCell(idx, cell) {
+  if (grid[idx] === 0) return;
+  if (selected === null) {
+    selected = idx;
+    cell.classList.add("selected");
+  } else if (selected !== idx && grid[selected] === grid[idx]) {
+    grid[selected]++;
+    coins += grid[selected];
+    grid[idx] = 0;
+    selected = null;
+    updateIncome();
+    renderGrid();
+    updateDisplay();
+  } else {
+    selected = null;
+    renderGrid();
+  }
+}
+
+function buyAxolotl() {
+  if (coins >= cost_axolotl) {
+    coins -= cost_axolotl;
+    let empty = grid.map((v,i)=>v===0?i:-1).filter(i=>i!==-1);
+    if (empty.length > 0) {
+      const randomIndex = Math.floor(Math.random() * empty.length);
+      grid[empty[randomIndex]] = 1;
+      updateIncome();
+      renderGrid();
+      updateDisplay();
+    } else {
+      coins += cost_axolotl; // Refund if no space
+      alert("No empty space on the grid!");
+    }
+  } else alert("Not enough coins to buy Axolotl");
+}
+
+function buyIngot() {
+  if (coins >= cost_ingot) {
+    coins -= cost_ingot;
+    ingots++;
+    updateDisplay();
+  } else alert("Not enough coins to buy Ingot");
+}
+function buy10Ingots() {
+  if (coins >= cost_10_ingots) {
+    coins -= cost_10_ingots;
+    ingots += 10;
+    updateDisplay();
+  } else alert("Not enough coins to buy 10 Ingots");
+}
+function buy100Ingots() {
+  if (coins >= cost_100_ingots) {
+    coins -= cost_100_ingots;
+    ingots += 100;
+    updateDisplay();
+  } else alert("Not enough coins to buy 100 Ingots");
+}
+
+function expandGrid() {
+  const currentCost = expand_costs[gridSize];
+  if (gridSize < 5 && ingots >= currentCost) {
+    ingots -= currentCost;
+    gridSize++;
+    grid = grid.concat(new Array(gridSize * gridSize - grid.length).fill(0));
+    updateIncome();
+    renderGrid();
+    updateDisplay();
+  } else if (gridSize >= 5) {
+      alert("Grid is already at max size.");
+  } else {
+      alert("Not enough ingots to expand grid");
+  }
+}
+
+function buyAutoMerge() {
+  if (autoMergeLevel >= 3) return;
+  const cost = autoMerge_costs[autoMergeLevel];
+  if (ingots >= cost) {
+    ingots -= cost;
+    autoMergeLevel++;
+    if (autoMergeInterval) clearInterval(autoMergeInterval);
+    const times = [5000, 3000, 1000];
+    autoMergeInterval = setInterval(runAutoMerge, times[autoMergeLevel - 1]);
+    updateAutoMergeButton();
+    updateDisplay();
+  } else alert(`Not enough ingots to buy Auto Merge Lvl ${autoMergeLevel + 1}`);
+}
+
+function updateAutoMergeButton() {
+  if (autoMergeLevel < 3) {
+    autoMergeBtn.textContent = `Buy Auto Merge Lvl ${autoMergeLevel + 1} (${autoMerge_costs[autoMergeLevel]} Ingots)`;
+    autoMergeBtn.style.display = "block";
+  } else {
+    autoMergeBtn.style.display = "none";
+  }
+}
+
+function runAutoMerge() {
+  if (coins >= 10 && grid.includes(0)) {
+    coins -= 10;
+    let empty = grid.map((v,i)=>v===0?i:-1).filter(i=>i!==-1);
+    if (empty.length > 0) {
+      const randomIndex = Math.floor(Math.random() * empty.length);
+      grid[empty[randomIndex]] = 1;
+    }
+  }
+  if (autoMergeLevel >= 1) mergeAllOfLevel(1);
+  if (autoMergeLevel >= 2) mergeAllOfLevel(2);
+  if (autoMergeLevel >= 3) { mergeAllOfLevel(3); mergeAllOfLevel(4); }
+  updateIncome();
+  renderGrid();
+  updateDisplay();
+}
+
+function mergeAllOfLevel(level) {
+  let merged = true;
+  while (merged) {
+    merged = false;
+    const indices = grid.map((v, i) => v === level ? i : -1).filter(i => i !== -1);
+    if (indices.length >= 2) {
+      const first = indices[0];
+      const second = indices[1];
+      grid[first]++;
+      coins += grid[first];
+      grid[second] = 0;
+      merged = true;
+    }
+  }
+}
+
+function updateIncome() {
+  let income = grid.reduce((acc,v)=>acc+(v>0?Math.pow(2,v):0),0);
+  if (income > maxPassive) income = maxPassive;
+  incomeSpan.textContent = income;
+}
+
+function updateDisplay() {
+  coinsSpan.textContent = coins;
+  ingotsSpan.textContent = ingots;
+
+  // Update button states
+  buyAxolotlBtn.disabled = coins < cost_axolotl;
+  buyIngotBtn.disabled = coins < cost_ingot;
+  buy10IngotsBtn.disabled = coins < cost_10_ingots;
+  buy100IngotsBtn.disabled = coins < cost_100_ingots;
+
+  if (gridSize < 5) {
+      expandGridBtn.disabled = ingots < expand_costs[gridSize];
+      expandGridBtn.textContent = `Expand Grid (${expand_costs[gridSize]} Ingots)`;
+  } else {
+      expandGridBtn.disabled = true;
+      expandGridBtn.textContent = "Grid Fully Expanded";
+  }
+
+  if (autoMergeLevel < 3) {
+    autoMergeBtn.disabled = ingots < autoMerge_costs[autoMergeLevel];
+  }
+}
+
+function passiveIncomeLoop() {
+  let income = grid.reduce((acc, v) => acc + (v > 0 ? Math.pow(2, v) : 0), 0);
+  if (income > maxPassive) income = maxPassive;
+  coins += income;
+  updateDisplay();
+}
+setInterval(passiveIncomeLoop, 1000);
+
+// New function for silent auto-saving
+function autoSaveGame() {
+    if (!consentGiven) return;
+    localStorage.setItem("axolotlSave", JSON.stringify({grid, coins, ingots, gridSize, autoMergeLevel, axolotlName}));
+}
+
+let feedbackTimeout;
+function showSaveFeedback() {
+    clearTimeout(feedbackTimeout);
+    saveFeedback.classList.add('visible');
+    feedbackTimeout = setTimeout(() => {
+        saveFeedback.classList.remove('visible');
+    }, 2000); // Message disappears after 2 seconds
+}
+
+// Function for manual save with feedback
+function manualSaveGame() {
+  if (!consentGiven) return;
+  autoSaveGame();
+  showSaveFeedback();
+}
+
+function loadGame() {
+  const save = localStorage.getItem("axolotlSave");
+  if (save) {
+    try {
+      const data = JSON.parse(save);
+      grid = data.grid || new Array(3*3).fill(0);
+      coins = data.coins || 50;
+      ingots = data.ingots || 0;
+      gridSize = data.gridSize || 3;
+      autoMergeLevel = data.autoMergeLevel || 0;
+      axolotlName = data.axolotlName || "";
+
+      if (autoMergeLevel > 0) {
+        if (autoMergeInterval) clearInterval(autoMergeInterval);
+        const times = [5000, 3000, 1000];
+        autoMergeInterval = setInterval(runAutoMerge, times[autoMergeLevel - 1]);
+      }
+      axolotlNameInput.value = axolotlName;
+      updateAutoMergeButton();
+    } catch (e) {
+      console.error("Failed to parse save data:", e);
+    }
+  }
+}
+
+function resetGame() {
+  if (confirm("Are you sure you want to reset your game?") && confirm("This is irreversible! Really sure?")) {
+    localStorage.removeItem("axolotlSave");
+    localStorage.removeItem("consentGiven");
+    location.reload();
+  }
+}
+
+function enableSaving() {
+  consentGiven = true;
+  localStorage.setItem("consentGiven", "true");
+  saveButtonsGroup.style.display = "flex";
+  changeMindBtn.style.display = "none";
+  loadGame(); // Reload data with saving now enabled
+  autoSaveInterval = setInterval(autoSaveGame, 5000); // Changed to use the silent auto-save function
+}
+
+window.onload = () => {
+    const storedConsent = localStorage.getItem("consentGiven");
+    if (storedConsent === null) {
+        if (confirm("Do you accept cookies (local storage save)? This will save your game progress automatically.")) {
+            enableSaving();
+        } else {
+            localStorage.setItem("consentGiven", "false");
+            changeMindBtn.style.display = "block";
+        }
+    } else if (storedConsent === "true") {
+        enableSaving();
+    } else {
+        changeMindBtn.style.display = "block";
+    }
+
+    renderGrid();
+    updateIncome();
+    updateDisplay();
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify({grid, coins, ingots, gridSize, autoMergeLevel, axolotlName})], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "axolotl-save.json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const save = JSON.parse(ev.target.result);
+      if(save.grid && save.coins != null){
+        grid = save.grid;
+        coins = save.coins;
+        ingots = save.ingots;
+        gridSize = save.gridSize;
+        autoMergeLevel = save.autoMergeLevel;
+        axolotlName = save.axolotlName || "";
+
+        if (autoMergeLevel > 0) {
+          if (autoMergeInterval) clearInterval(autoMergeInterval);
+          const times = [5000, 3000, 1000];
+          autoMergeInterval = setInterval(runAutoMerge, times[autoMergeLevel - 1]);
+        }
+        axolotlNameInput.value = axolotlName;
+        updateIncome();
+        renderGrid();
+        updateDisplay();
+        updateAutoMergeButton();
+        alert("Game loaded from file!");
+      } else {
+        alert("Invalid save file!");
+      }
+    } catch {
+      alert("Failed to load save file!");
+    }
+  };
+  reader.readAsText(file);
+}
+</script>
+</body>
+</html>
