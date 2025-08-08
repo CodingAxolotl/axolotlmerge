@@ -2,23 +2,35 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Merge Axolotls!</title>
+<script src="https://cdn.tailwindcss.com"></script>
 <style>
   body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', sans-serif;
     text-align: center;
     background: linear-gradient(135deg, #e0f7fa, #c5cae9);
     color: #333;
     padding: 20px;
     margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
   h1 {
       margin-bottom: 5px;
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #3f51b5;
   }
   #gameArea {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
     align-items: flex-start;
+    gap: 20px;
+    margin-top: 20px;
   }
   #stats {
     background: rgba(255, 255, 255, 0.8);
@@ -35,7 +47,6 @@
     grid-template-columns: repeat(3, 100px);
     grid-gap: 12px;
     justify-content: center;
-    margin-bottom: 20px;
     padding: 10px;
     background: rgba(255, 255, 255, 0.6);
     backdrop-filter: blur(5px);
@@ -43,7 +54,6 @@
     box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
   }
   #nameInputContainer {
-    margin-left: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -66,6 +76,12 @@
     border: 2px solid #aaa;
     text-align: center;
     font-size: 1em;
+    outline: none;
+    transition: all 0.3s ease;
+  }
+  #nameInputContainer input:focus {
+      border-color: #3f51b5;
+      box-shadow: 0 0 5px rgba(63, 81, 181, 0.5);
   }
   .cell {
     width: 100px;
@@ -80,6 +96,8 @@
     border-radius: 12px;
     transition: transform 0.2s, box-shadow 0.2s;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
   }
   .cell:hover {
     transform: scale(1.05);
@@ -88,9 +106,12 @@
   .cell.selected {
       border: 3px solid #ff4d4d;
   }
-  .axolotl-svg {
-    width: 50px;
-    height: 50px;
+  .axolotl-img {
+    width: 100%;
+    height: auto;
+    max-width: 80px;
+    max-height: 80px;
+    transition: transform 0.2s;
   }
   button {
     display: block;
@@ -175,6 +196,42 @@
   #saveFeedback.visible {
       opacity: 1;
   }
+
+  /* Modal styling */
+  .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.4);
+      backdrop-filter: blur(5px);
+  }
+  .modal-content {
+      background-color: #fefefe;
+      margin: 15% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 400px;
+      border-radius: 20px;
+      text-align: center;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  }
+  .close-button {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+  }
+  .close-button:hover, .close-button:focus {
+      color: black;
+      text-decoration: none;
+      cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -213,12 +270,46 @@
     </div>
     <button id="changeMindBtn" class="change-mind-btn" onclick="enableSaving()" style="display:none;">Change My Mind</button>
 </div>
-<button class="reset-btn" onclick="resetGame()">Reset Game</button>
+<button class="reset-btn" onclick="showResetModal()">Reset Game</button>
 
 <div id="saveFeedback">Game Saved!</div>
 
+<!-- Custom Modals -->
+<div id="resetModal" class="modal">
+  <div class="modal-content">
+    <span class="close-button" onclick="closeModal('resetModal')">&times;</span>
+    <p>Are you sure you want to reset your game?</p>
+    <button class="reset-btn" onclick="confirmReset()">Yes, reset</button>
+    <button class="change-mind-btn" onclick="closeModal('resetModal')">Cancel</button>
+  </div>
+</div>
+
+<div id="alertModal" class="modal">
+  <div class="modal-content">
+    <span class="close-button" onclick="closeModal('alertModal')">&times;</span>
+    <p id="alertMessage"></p>
+    <button class="change-mind-btn" onclick="closeModal('alertModal')">OK</button>
+  </div>
+</div>
+
+<div id="confirmModal" class="modal">
+  <div class="modal-content">
+    <span class="close-button" onclick="closeModal('confirmModal')">&times;</span>
+    <p id="confirmMessage"></p>
+    <button id="confirmYesBtn" class="reset-btn">Yes</button>
+    <button id="confirmNoBtn" class="change-mind-btn" onclick="closeModal('confirmModal')">No</button>
+  </div>
+</div>
+
 <script>
-const colors = ["#4CAF50", "#2196F3", "#FF9800", "#9C27B0", "#E91E63", "#FFEB3B", "#00BCD4", "#795548", "#8BC34A", "#F44336"];
+// Image URLs for axolotls
+const axolotlImages = [
+    'https://placehold.co/100x100/ffc0cb/000?text=pink.WEBP', // Level 1 (pink)
+    'https://placehold.co/100x100/FFFF00/000?text=yellow.WEBP', // Level 2 (yellow)
+    'https://placehold.co/100x100/A52A2A/FFF?text=brown.WEBP', // Level 3 (brown)
+    'https://placehold.co/100x100/0000FF/FFF?text=blue.WEBP', // Level 4 (blue)
+];
+
 let gridSize = 3;
 let grid = new Array(gridSize * gridSize).fill(0);
 let coins = 50;
@@ -252,33 +343,35 @@ const autoMergeBtn = document.getElementById('autoMergeBtn');
 const saveButtonsGroup = document.getElementById('save-buttons-group');
 const changeMindBtn = document.getElementById('changeMindBtn');
 const saveFeedback = document.getElementById('saveFeedback');
+const alertModal = document.getElementById('alertModal');
+const alertMessage = document.getElementById('alertMessage');
+const resetModal = document.getElementById('resetModal');
+const confirmModal = document.getElementById('confirmModal');
+const confirmMessage = document.getElementById('confirmMessage');
 
 axolotlNameInput.addEventListener("input", e => {
   axolotlName = e.target.value.slice(0,7);
   renderGrid();
 });
 
-function getAxolotlSVG(color) {
-  return `
-    <svg class="axolotl-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="32" cy="32" r="16" fill="${color}" stroke="black" stroke-width="2"/>
-      <line x1="16" y1="32" x2="0" y2="32" stroke="black" stroke-width="2"/>
-      <line x1="48" y1="32" x2="64" y2="32" stroke="black" stroke-width="2"/>
-      <circle cx="26" cy="28" r="3" fill="black"/>
-      <circle cx="38" cy="28" r="3" fill="black"/>
-      <path d="M26 38 Q32 46 38 38" stroke="black" stroke-width="2" fill="none"/>
-    </svg>`;
+// Now uses a modulo operator to create a repeating loop of the images
+function getAxolotlImageUrl(level) {
+    if (level < 1) return '';
+    return axolotlImages[(level - 1) % axolotlImages.length];
 }
 
 function renderGrid() {
-  gridDiv.style.gridTemplateColumns = `repeat(${gridSize}, 100px)`;
+  gridDiv.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
   gridDiv.innerHTML = '';
   grid.forEach((level, idx) => {
     const cell = document.createElement('div');
     cell.className = 'cell';
     if (level > 0) {
-      let color = colors[(level - 1) % colors.length];
-      cell.innerHTML = getAxolotlSVG(color) + `<div>${axolotlName}-${level}</div>`;
+        const imageUrl = getAxolotlImageUrl(level);
+        cell.innerHTML = `
+            <img src="${imageUrl}" alt="Axolotl level ${level}" class="axolotl-img" />
+            <div>${axolotlName}-${level}</div>
+        `;
     }
     cell.onclick = () => selectCell(idx, cell);
     gridDiv.appendChild(cell);
@@ -295,33 +388,36 @@ function selectCell(idx, cell) {
     cell.classList.add("selected");
   } else if (selected !== idx && grid[selected] === grid[idx]) {
     grid[selected]++;
-    coins += grid[selected];
+    coins += Math.pow(2, grid[selected]); // Corrected passive income formula
     grid[idx] = 0;
     selected = null;
     updateIncome();
     renderGrid();
     updateDisplay();
   } else {
+    gridDiv.children[selected].classList.remove("selected");
     selected = null;
-    renderGrid();
+    if (grid[idx] !== 0) { // If the new cell isn't empty, select it
+        selected = idx;
+        cell.classList.add("selected");
+    }
   }
 }
 
 function buyAxolotl() {
   if (coins >= cost_axolotl) {
-    coins -= cost_axolotl;
     let empty = grid.map((v,i)=>v===0?i:-1).filter(i=>i!==-1);
     if (empty.length > 0) {
+      coins -= cost_axolotl;
       const randomIndex = Math.floor(Math.random() * empty.length);
       grid[empty[randomIndex]] = 1;
       updateIncome();
       renderGrid();
       updateDisplay();
     } else {
-      coins += cost_axolotl; // Refund if no space
-      alert("No empty space on the grid!");
+      showAlert("No empty space on the grid!");
     }
-  } else alert("Not enough coins to buy Axolotl");
+  } else showAlert("Not enough coins to buy Axolotl");
 }
 
 function buyIngot() {
@@ -329,41 +425,46 @@ function buyIngot() {
     coins -= cost_ingot;
     ingots++;
     updateDisplay();
-  } else alert("Not enough coins to buy Ingot");
+  } else showAlert("Not enough coins to buy Ingot");
 }
 function buy10Ingots() {
   if (coins >= cost_10_ingots) {
     coins -= cost_10_ingots;
     ingots += 10;
     updateDisplay();
-  } else alert("Not enough coins to buy 10 Ingots");
+  } else showAlert("Not enough coins to buy 10 Ingots");
 }
 function buy100Ingots() {
   if (coins >= cost_100_ingots) {
     coins -= cost_100_ingots;
     ingots += 100;
     updateDisplay();
-  } else alert("Not enough coins to buy 100 Ingots");
+  } else showAlert("Not enough coins to buy 100 Ingots");
 }
 
 function expandGrid() {
   const currentCost = expand_costs[gridSize];
-  if (gridSize < 5 && ingots >= currentCost) {
-    ingots -= currentCost;
-    gridSize++;
-    grid = grid.concat(new Array(gridSize * gridSize - grid.length).fill(0));
-    updateIncome();
-    renderGrid();
-    updateDisplay();
-  } else if (gridSize >= 5) {
-      alert("Grid is already at max size.");
+  if (gridSize < 5) {
+      if (ingots >= currentCost) {
+        ingots -= currentCost;
+        gridSize++;
+        grid = grid.concat(new Array(gridSize * gridSize - grid.length).fill(0));
+        updateIncome();
+        renderGrid();
+        updateDisplay();
+      } else {
+          showAlert(`Not enough ingots to expand grid! You need ${currentCost} ingots.`);
+      }
   } else {
-      alert("Not enough ingots to expand grid");
+      showAlert("Grid is already at max size.");
   }
 }
 
 function buyAutoMerge() {
-  if (autoMergeLevel >= 3) return;
+  if (autoMergeLevel >= 3) {
+    showAlert("Auto Merge is already at max level.");
+    return;
+  }
   const cost = autoMerge_costs[autoMergeLevel];
   if (ingots >= cost) {
     ingots -= cost;
@@ -373,7 +474,7 @@ function buyAutoMerge() {
     autoMergeInterval = setInterval(runAutoMerge, times[autoMergeLevel - 1]);
     updateAutoMergeButton();
     updateDisplay();
-  } else alert(`Not enough ingots to buy Auto Merge Lvl ${autoMergeLevel + 1}`);
+  } else showAlert(`Not enough ingots to buy Auto Merge Lvl ${autoMergeLevel + 1}. You need ${cost} ingots.`);
 }
 
 function updateAutoMergeButton() {
@@ -381,45 +482,46 @@ function updateAutoMergeButton() {
     autoMergeBtn.textContent = `Buy Auto Merge Lvl ${autoMergeLevel + 1} (${autoMerge_costs[autoMergeLevel]} Ingots)`;
     autoMergeBtn.style.display = "block";
   } else {
-    autoMergeBtn.style.display = "none";
+    autoMergeBtn.textContent = `Auto Merge Max Level`;
+    autoMergeBtn.disabled = true;
   }
 }
 
 function runAutoMerge() {
-  if (coins >= 10 && grid.includes(0)) {
-    coins -= 10;
+  // Buy a level 1 axolotl if there is space and enough coins
+  if (coins >= cost_axolotl && grid.includes(0)) {
+    coins -= cost_axolotl;
     let empty = grid.map((v,i)=>v===0?i:-1).filter(i=>i!==-1);
     if (empty.length > 0) {
       const randomIndex = Math.floor(Math.random() * empty.length);
       grid[empty[randomIndex]] = 1;
     }
   }
-  if (autoMergeLevel >= 1) mergeAllOfLevel(1);
-  if (autoMergeLevel >= 2) mergeAllOfLevel(2);
-  if (autoMergeLevel >= 3) { mergeAllOfLevel(3); mergeAllOfLevel(4); }
+
+  // Auto-merge logic
+  for (let level = autoMergeLevel; level >= 1; level--) {
+    let merged = true;
+    while (merged) {
+      merged = false;
+      const indices = grid.map((v, i) => v === level ? i : -1).filter(i => i !== -1);
+      if (indices.length >= 2) {
+        const first = indices[0];
+        const second = indices[1];
+        grid[first]++;
+        coins += Math.pow(2, grid[first]);
+        grid[second] = 0;
+        merged = true;
+      }
+    }
+  }
+
   updateIncome();
   renderGrid();
   updateDisplay();
 }
 
-function mergeAllOfLevel(level) {
-  let merged = true;
-  while (merged) {
-    merged = false;
-    const indices = grid.map((v, i) => v === level ? i : -1).filter(i => i !== -1);
-    if (indices.length >= 2) {
-      const first = indices[0];
-      const second = indices[1];
-      grid[first]++;
-      coins += grid[first];
-      grid[second] = 0;
-      merged = true;
-    }
-  }
-}
-
 function updateIncome() {
-  let income = grid.reduce((acc,v)=>acc+(v>0?Math.pow(2,v):0),0);
+  let income = grid.reduce((acc, v) => acc + (v > 0 ? Math.pow(2, v) : 0), 0);
   if (income > maxPassive) income = maxPassive;
   incomeSpan.textContent = income;
 }
@@ -428,8 +530,7 @@ function updateDisplay() {
   coinsSpan.textContent = coins;
   ingotsSpan.textContent = ingots;
 
-  // Update button states
-  buyAxolotlBtn.disabled = coins < cost_axolotl;
+  buyAxolotlBtn.disabled = coins < cost_axolotl || !grid.includes(0);
   buyIngotBtn.disabled = coins < cost_ingot;
   buy10IngotsBtn.disabled = coins < cost_10_ingots;
   buy100IngotsBtn.disabled = coins < cost_100_ingots;
@@ -496,18 +597,36 @@ function loadGame() {
       }
       axolotlNameInput.value = axolotlName;
       updateAutoMergeButton();
+      renderGrid();
+      updateIncome();
+      updateDisplay();
     } catch (e) {
       console.error("Failed to parse save data:", e);
     }
   }
 }
 
-function resetGame() {
-  if (confirm("Are you sure you want to reset your game?") && confirm("This is irreversible! Really sure?")) {
+function showResetModal() {
+    resetModal.style.display = "block";
+}
+
+function confirmReset() {
     localStorage.removeItem("axolotlSave");
     localStorage.removeItem("consentGiven");
     location.reload();
-  }
+}
+
+function showModal(modalId) {
+    document.getElementById(modalId).style.display = "block";
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = "none";
+}
+
+function showAlert(message) {
+    alertMessage.textContent = message;
+    showModal('alertModal');
 }
 
 function enableSaving() {
@@ -516,22 +635,29 @@ function enableSaving() {
   saveButtonsGroup.style.display = "flex";
   changeMindBtn.style.display = "none";
   loadGame(); // Reload data with saving now enabled
-  autoSaveInterval = setInterval(autoSaveGame, 5000); // Changed to use the silent auto-save function
+  autoSaveInterval = setInterval(autoSaveGame, 5000);
 }
 
 window.onload = () => {
     const storedConsent = localStorage.getItem("consentGiven");
     if (storedConsent === null) {
-        if (confirm("Do you accept cookies (local storage save)? This will save your game progress automatically.")) {
+        showModal('confirmModal');
+        confirmMessage.textContent = "Do you accept cookies (local storage save)? This will save your game progress automatically.";
+        document.getElementById('confirmYesBtn').onclick = () => {
             enableSaving();
-        } else {
+            closeModal('confirmModal');
+        };
+        document.getElementById('confirmNoBtn').onclick = () => {
             localStorage.setItem("consentGiven", "false");
             changeMindBtn.style.display = "block";
-        }
+            closeModal('confirmModal');
+            loadGame();
+        };
     } else if (storedConsent === "true") {
         enableSaving();
     } else {
         changeMindBtn.style.display = "block";
+        loadGame();
     }
 
     renderGrid();
@@ -576,12 +702,12 @@ function importData(e) {
         renderGrid();
         updateDisplay();
         updateAutoMergeButton();
-        alert("Game loaded from file!");
+        showAlert("Game loaded from file!");
       } else {
-        alert("Invalid save file!");
+        showAlert("Invalid save file!");
       }
     } catch {
-      alert("Failed to load save file!");
+      showAlert("Failed to load save file!");
     }
   };
   reader.readAsText(file);
