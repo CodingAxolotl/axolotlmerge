@@ -136,6 +136,9 @@
   .discord-btn {
     background-image: linear-gradient(to right, #5865F2 0%, #7289DA 50%, #5865F2 100%);
   }
+  .prestige-btn {
+    background-image: linear-gradient(to right, #7b4397 0%, #dc2430 50%, #7b4397 100%);
+  }
   button:hover {
     background-position: right center;
     transform: translateY(-2px);
@@ -223,7 +226,8 @@
 <div id="stats">
   Coins: <span id="coins">0</span> |
   Passive Income: <span id="income">0</span>/sec |
-  🪙 <span id="ingots">0</span>
+  🪙 <span id="ingots">0</span> |
+  ✨ Multiplier: <span id="multiplierDisplay">1x coins, 1x ingots</span>
 </div>
 
 <div id="gameArea">
@@ -242,6 +246,7 @@
 </div>
 <button id="expandGridBtn" class="expand-grid" onclick="expandGrid()">Expand Grid</button>
 <button id="autoMergeBtn" class="buy-auto-merge" onclick="buyAutoMerge()">Buy Auto Merge Lvl 1 (1000 Ingots)</button>
+<button id="prestigeBtn" class="prestige-btn" onclick="showModal('prestige')">Prestige (1M Coins)</button>
 
 <h3>Socials & Settings</h3>
 <button class="discord-btn" onclick="window.open('https://discord.gg/HhSK2VsvP5', '_blank')">Join my Discord server!</button>
@@ -277,6 +282,10 @@
   const maxPassive = 5000;
   let consentGiven = false;
   let autoSaveInterval = null;
+  // Prestige-related variables
+  let prestigeBought = false;
+  let ingotGainMultiplier = 1;
+  let coinGainMultiplier = 1;
 
   const cost_axolotl = 10;
   const cost_ingot = 1000;
@@ -284,11 +293,15 @@
   const cost_100_ingots = 95000;
   const expand_costs = { 3: 100, 4: 500 };
   const autoMerge_costs = [1000, 2000, 5000];
+  const prestige_cost = 1000000;
+  const prestige_ingot_bonus = 5;
+  const prestige_coin_bonus = 2;
 
   const gridDiv = document.getElementById('grid');
   const coinsSpan = document.getElementById('coins');
   const incomeSpan = document.getElementById('income');
   const ingotsSpan = document.getElementById('ingots');
+  const multiplierDisplay = document.getElementById('multiplierDisplay');
   const axolotlNameInput = document.getElementById("axolotlNameInput");
   const buyAxolotlBtn = document.getElementById('buyAxolotlBtn');
   const buyIngotBtn = document.getElementById('buyIngotBtn');
@@ -296,6 +309,7 @@
   const buy100IngotsBtn = document.getElementById('buy100IngotsBtn');
   const expandGridBtn = document.getElementById('expandGridBtn');
   const autoMergeBtn = document.getElementById('autoMergeBtn');
+  const prestigeBtn = document.getElementById('prestigeBtn');
   const saveFeedback = document.getElementById('saveFeedback');
   const modalContainer = document.getElementById('modalContainer');
   const modalContent = document.getElementById('modalContent');
@@ -354,7 +368,7 @@
       cell.classList.add("selected");
     } else if (selected !== idx && grid[selected] === grid[idx]) {
       grid[selected]++;
-      coins += grid[selected];
+      coins += grid[selected] * coinGainMultiplier;
       grid[idx] = 0;
       selected = null;
       updateIncome();
@@ -388,7 +402,7 @@
   function buyIngot() {
     if (coins >= cost_ingot) {
       coins -= cost_ingot;
-      ingots++;
+      ingots += 1 * ingotGainMultiplier;
       updateDisplay();
       if (consentGiven) saveToLocalStorage();
     } else showDialog("Not enough coins to buy Ingot");
@@ -396,7 +410,7 @@
   function buy10Ingots() {
     if (coins >= cost_10_ingots) {
       coins -= cost_10_ingots;
-      ingots += 10;
+      ingots += 10 * ingotGainMultiplier;
       updateDisplay();
       if (consentGiven) saveToLocalStorage();
     } else showDialog("Not enough coins to buy 10 Ingots");
@@ -404,7 +418,7 @@
   function buy100Ingots() {
     if (coins >= cost_100_ingots) {
       coins -= cost_100_ingots;
-      ingots += 100;
+      ingots += 100 * ingotGainMultiplier;
       updateDisplay();
       if (consentGiven) saveToLocalStorage();
     } else showDialog("Not enough coins to buy 100 Ingots");
@@ -478,22 +492,48 @@
         const first = indices[0];
         const second = indices[1];
         grid[first]++;
-        coins += grid[first];
+        coins += grid[first] * coinGainMultiplier;
         grid[second] = 0;
         merged = true;
       }
     }
   }
 
+  function prestige() {
+    if (prestigeBought) {
+        showDialog("You have already prestiged! This can only be done once.");
+        return;
+    }
+    prestigeBought = true;
+    ingotGainMultiplier = prestige_ingot_bonus;
+    coinGainMultiplier = prestige_coin_bonus;
+
+    gridSize = 3;
+    grid = new Array(gridSize * gridSize).fill(0);
+    coins = 50;
+    selected = null;
+    axolotlName = "";
+    autoMergeLevel = 0;
+    if (autoMergeInterval) clearInterval(autoMergeInterval);
+    updateAutoMergeButton();
+    updateIncome();
+    renderGrid();
+    updateDisplay();
+    if (consentGiven) saveToLocalStorage();
+    hideModal();
+    showDialog(`You have prestiged! Your passive income is now multiplied by ${coinGainMultiplier}x and your ingot gain by ${ingotGainMultiplier}x.`);
+  }
+
   function updateIncome() {
     let income = grid.reduce((acc,v)=>acc+(v>0?Math.pow(2,v):0),0);
     if (income > maxPassive) income = maxPassive;
-    incomeSpan.textContent = income;
+    incomeSpan.textContent = formatNumber(Math.floor(income * coinGainMultiplier));
   }
 
   function updateDisplay() {
     coinsSpan.textContent = formatNumber(coins);
     ingotsSpan.textContent = formatNumber(ingots);
+    multiplierDisplay.textContent = `${coinGainMultiplier}x coins, ${ingotGainMultiplier}x ingots`;
 
     buyAxolotlBtn.disabled = coins < cost_axolotl;
     buyIngotBtn.disabled = coins < cost_ingot;
@@ -511,12 +551,19 @@
     if (autoMergeLevel < 3) {
       autoMergeBtn.disabled = ingots < autoMerge_costs[autoMergeLevel];
     }
+    
+    if (prestigeBought) {
+        prestigeBtn.disabled = true;
+        prestigeBtn.textContent = "Prestige Complete";
+    } else {
+        prestigeBtn.disabled = coins < prestige_cost;
+    }
   }
 
   function passiveIncomeLoop() {
     let income = grid.reduce((acc, v) => acc + (v > 0 ? Math.pow(2, v) : 0), 0);
     if (income > maxPassive) income = maxPassive;
-    coins += income;
+    coins += Math.floor(income * coinGainMultiplier);
     updateDisplay();
   }
   setInterval(passiveIncomeLoop, 1000);
@@ -560,6 +607,22 @@
               <button class="save-load-btn" onclick="acceptCookies()">Accept</button>
               <button class="reset-btn" onclick="startWithoutCookies()">Decline</button>
           `;
+      } else if (type === 'prestige') {
+          if (prestigeBought) {
+              modalContent.innerHTML = `
+                  <h2>Prestige Complete</h2>
+                  <p>You have already prestiged. This can only be done once!</p>
+                  <button class="reset-btn" onclick="hideModal()">Close</button>
+              `;
+          } else {
+              modalContent.innerHTML = `
+                  <h2>Prestige</h2>
+                  <p>Are you sure you want to Prestige? This action costs ${formatNumber(prestige_cost)} coins and is irreversible. You will get permanent multipliers for your next playthrough.</p>
+                  <p>Upon prestiging, you will get **${prestige_coin_bonus}x coins** and **${prestige_ingot_bonus}x ingots** forever!</p>
+                  <button class="prestige-btn" onclick="prestige()">Prestige Now</button>
+                  <button class="reset-btn" onclick="hideModal()">Cancel</button>
+              `;
+          }
       }
       modalContainer.style.display = 'flex';
   }
@@ -572,7 +635,10 @@
           ingots,
           gridSize,
           autoMergeLevel,
-          axolotlName
+          axolotlName,
+          prestigeBought,
+          ingotGainMultiplier,
+          coinGainMultiplier
       };
       const saveData = JSON.stringify(saveObject);
       const encryptedData = CryptoJS.AES.encrypt(saveData, AES_KEY).toString();
@@ -603,6 +669,9 @@
       gridSize = data.gridSize || 3;
       autoMergeLevel = data.autoMergeLevel || 0;
       axolotlName = data.axolotlName || "";
+      prestigeBought = data.prestigeBought || false;
+      ingotGainMultiplier = data.ingotGainMultiplier || 1;
+      coinGainMultiplier = data.coinGainMultiplier || 1;
 
       if (autoMergeInterval) clearInterval(autoMergeInterval);
       if (autoMergeLevel > 0) {
@@ -617,11 +686,16 @@
   }
 
   function resetGame() {
-      if (confirm("Are you sure you want to reset your game? This is irreversible.")) {
-          localStorage.removeItem("axolotlSave");
-          localStorage.removeItem("consentGiven");
-          location.reload();
-      }
+      showDialog(`Are you sure you want to reset your game? This will remove all progress (including ingots and prestige bonuses).
+      <br><br>
+      <button class="reset-btn" onclick="performReset()">Yes, Reset</button>
+      <button class="save-load-btn" onclick="hideModal()">Cancel</button>`);
+  }
+
+  function performReset() {
+      localStorage.removeItem("axolotlSave");
+      localStorage.removeItem("consentGiven");
+      location.reload();
   }
 
   function getGameState() {
@@ -631,7 +705,10 @@
           ingots,
           gridSize,
           autoMergeLevel,
-          axolotlName
+          axolotlName,
+          prestigeBought,
+          ingotGainMultiplier,
+          coinGainMultiplier
       };
   }
 
