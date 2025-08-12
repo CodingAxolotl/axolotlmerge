@@ -282,7 +282,7 @@
 
 <script>
   const AES_KEY = "super-secret-key-that-is-not-very-secret";
-  const colors = ["#4CAF50", "#2196F3", "#FF9800", "#9C27B0", "#E91E63", "#FFEB3B", "#00BCD4", "#795548", "#8BC34A", "#F44336"];
+  const colors = ["#4CAF50", "#2196F3", "#FF9800", "#9C27B0", "#E91E63", "#FFEB3B", "#00BCD4", "#795548", "#8BC34A", "#F4436A"];
   let gridSize = 3;
   let grid = new Array(gridSize * gridSize).fill(0);
   let coins = 0;
@@ -591,6 +591,7 @@
 
   function updateIncome() {
     let income = grid.reduce((acc,v)=>acc+(v>0?Math.pow(2,v):0),0);
+    // Applying the passive income cap as requested
     if (income > maxPassive) income = maxPassive;
     incomeSpan.textContent = formatNumber(Math.floor(income * coinGainMultiplier));
   }
@@ -629,7 +630,8 @@
 
   function passiveIncomeLoop() {
     let income = grid.reduce((acc, v) => acc + (v > 0 ? Math.pow(2, v) : 0), 0);
-    if (income > maxPassive) income = maxPassive; // The cap is applied here
+    // The cap is applied here before adding to coins
+    if (income > maxPassive) income = maxPassive; 
     coins += Math.floor(income * coinGainMultiplier);
     updateDisplay();
   }
