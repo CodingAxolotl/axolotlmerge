@@ -250,6 +250,7 @@
 
 <h3>Socials & Settings</h3>
 <button class="discord-btn" onclick="window.open('https://discord.gg/HhSK2VsvP5', '_blank')">Join my Discord server!</button>
+<button class="save-load-btn" onclick="showModal('howToPlay')">How to Play</button>
 <div id="save-load-group">
     <h4>Copy/Paste Save ID</h4>
     <button id="copySaveBtn" class="save-load-btn" onclick="copySaveData()">Copy Save ID</button>
@@ -286,6 +287,8 @@
   let prestigeBought = false;
   let ingotGainMultiplier = 1;
   let coinGainMultiplier = 1;
+  const ingot_surprise_chance = 0.01;
+  const super_merge_chance = 0.01; // Changed to 1%
 
   const cost_axolotl = 10;
   const cost_ingot = 1000;
@@ -367,9 +370,24 @@
       selected = idx;
       cell.classList.add("selected");
     } else if (selected !== idx && grid[selected] === grid[idx]) {
-      grid[selected]++;
-      coins += grid[selected] * coinGainMultiplier;
+      let newLevel = grid[selected] + 1;
+      
+      // Surprise 1: Super Merge!
+      if (Math.random() < super_merge_chance) {
+          newLevel++;
+          showSaveFeedback("🌟 Super Merge! Your axolotl skipped a level! 🌟");
+      }
+      
+      coins += newLevel * coinGainMultiplier;
+      grid[selected] = newLevel;
       grid[idx] = 0;
+
+      // Surprise 2: Gold Ingot
+      if (Math.random() < ingot_surprise_chance) {
+          ingots += 1 * ingotGainMultiplier;
+          showSaveFeedback("✨ Surprise! You found a Gold Ingot! ✨");
+      }
+      
       selected = null;
       updateIncome();
       renderGrid();
@@ -491,9 +509,24 @@
       if (indices.length >= 2) {
         const first = indices[0];
         const second = indices[1];
-        grid[first]++;
-        coins += grid[first] * coinGainMultiplier;
+        let newLevel = grid[first] + 1;
+        
+        // Surprise 1: Super Merge!
+        if (Math.random() < super_merge_chance) {
+            newLevel++;
+            showSaveFeedback("🌟 Super Merge! Your axolotl skipped a level! 🌟");
+        }
+        
+        coins += newLevel * coinGainMultiplier;
+        grid[first] = newLevel;
         grid[second] = 0;
+        
+        // Surprise 2: Gold Ingot
+        if (Math.random() < ingot_surprise_chance) {
+            ingots += 1 * ingotGainMultiplier;
+            showSaveFeedback("✨ Surprise! You found a Gold Ingot! ✨");
+        }
+        
         merged = true;
       }
     }
@@ -623,6 +656,22 @@
                   <button class="reset-btn" onclick="hideModal()">Cancel</button>
               `;
           }
+      } else if (type === 'howToPlay') {
+          modalContent.innerHTML = `
+              <h2>How to Play</h2>
+              <p>
+                The goal is to merge axolotls of the same level to create a higher-level axolotl and earn more coins.
+                Click on an axolotl to select it, then click on another axolotl of the same level to merge them.
+              </p>
+              <h3>Game Mechanics:</h3>
+              <ul>
+                <li><strong>Passive Income:</strong> Your axolotls passively generate coins every second. The maximum passive income is capped at 5,000 coins per second.</li>
+                <li><strong>Super Merge:</strong> There is a <strong>1% chance</strong> when merging two axolotls that the new axolotl will skip a level!</li>
+                <li><strong>Gold Ingot Surprise:</strong> There is a <strong>1% chance</strong> of finding a gold ingot every time you merge.</li>
+                <li><strong>Prestige:</strong> For 1 million coins, you can Prestige once to get permanent multipliers for your next playthrough.</li>
+              </ul>
+              <button class="reset-btn" onclick="hideModal()">Close</button>
+          `;
       }
       modalContainer.style.display = 'flex';
   }
@@ -776,7 +825,6 @@
     }
     setInterval(passiveIncomeLoop, 1000);
   }
-
 </script>
 </body>
 </html>
