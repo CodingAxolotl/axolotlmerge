@@ -218,6 +218,9 @@
       width: auto;
       margin: 5px;
   }
+  #howToPlayContainer {
+      margin-top: 20px;
+  }
 </style>
 </head>
 <body>
@@ -248,9 +251,13 @@
 <button id="autoMergeBtn" class="buy-auto-merge" onclick="buyAutoMerge()">Buy Auto Merge Lvl 1 (1000 Ingots)</button>
 <button id="prestigeBtn" class="prestige-btn" onclick="showModal('prestige')">Prestige (1M Coins)</button>
 
+<!-- New How To Play Button -->
+<div id="howToPlayContainer">
+    <button class="save-load-btn" onclick="showModal('howToPlay')">How to Play</button>
+</div>
+
 <h3>Socials & Settings</h3>
 <button class="discord-btn" onclick="window.open('https://discord.gg/HhSK2VsvP5', '_blank')">Join my Discord server!</button>
-<button class="save-load-btn" onclick="showModal('howToPlay')">How to Play</button>
 <div id="save-load-group">
     <h4>Copy/Paste Save ID</h4>
     <button id="copySaveBtn" class="save-load-btn" onclick="copySaveData()">Copy Save ID</button>
