@@ -329,12 +329,12 @@
 
 <button id="buyAxolotlBtn" class="buy-axolotl" onclick="buyAxolotl()">Buy Lvl 1 Axolotl (10 Coins)</button>
 <div class="button-group">
-  <button id="buyIngotBtn" class="buy-ingot" onclick="buyIngot()">Buy Gold Ingot (1000 Coins)</button>
-  <button id="buy10IngotsBtn" class="buy-ingot" onclick="buy10Ingots()">Buy 10 Ingots (9750 Coins)</button>
-  <button id="buy100IngotsBtn" class="buy-ingot" onclick="buy100Ingots()">Buy 100 Ingots (95000 Coins)</button>
+  <button id="buyIngotBtn" class="buy-ingot" onclick="buyIngot()">Buy Gold Ingot (1K Coins)</button>
+  <button id="buy10IngotsBtn" class="buy-ingot" onclick="buy10Ingots()">Buy 10 Ingots (9.75K Coins)</button>
+  <button id="buy100IngotsBtn" class="buy-ingot" onclick="buy100Ingots()">Buy 100 Ingots (95K Coins)</button>
 </div>
 <button id="expandGridBtn" class="expand-grid" onclick="expandGrid()">Expand Grid</button>
-<button id="autoMergeBtn" class="buy-auto-merge" onclick="buyAutoMerge()">Buy Auto Merge Lvl 1 (1000 Ingots)</button>
+<button id="autoMergeBtn" class="buy-auto-merge" onclick="buyAutoMerge()">Buy Auto Merge Lvl 1 (1K Ingots)</button>
 <button id="prestigeBtn" class="prestige-btn" onclick="showModal('prestige')">Prestige (1M Coins)</button>
 <button id="buyGoldBadgeBtn" class="surprise-btn" onclick="buyGoldBadge()">Buy Gold Ingot Badge (10M Ingots)</button>
 
@@ -427,20 +427,20 @@
   // Achievements data structure
   let achievements = {
     'coins_500': { name: "A Little Something", description: "Get 500 coins", unlocked: false, threshold: 500, type: 'coins', icon: '💰' },
-    'coins_5k': { name: "Coin Collector", description: "Get 5,000 coins", unlocked: false, threshold: 5000, type: 'coins', icon: '🪙' },
-    'coins_500k': { name: "Wealthy Axolotl", description: "Get 500,000 coins", unlocked: false, threshold: 500000, type: 'coins', icon: '💎' },
-    'coins_1m': { name: "Millionaire", description: "Get 1 Million coins", unlocked: false, threshold: 1000000, type: 'coins', icon: '💰' },
-    'coins_10m': { name: "Tycoon", description: "Get 10 Million coins", unlocked: false, threshold: 10000000, type: 'coins', icon: '👑' },
-    'coins_100m': { name: "Mogul", description: "Get 100 Million coins", unlocked: false, threshold: 100000000, type: 'coins', icon: '🏛️' },
-    'coins_1b': { name: "Billionaire", description: "Get 1 Billion coins", unlocked: false, threshold: 1000000000, type: 'coins', icon: '🚀' },
+    'coins_5k': { name: "Coin Collector", description: "Get 5K coins", unlocked: false, threshold: 5000, type: 'coins', icon: '🪙' },
+    'coins_500k': { name: "Wealthy Axolotl", description: "Get 500K coins", unlocked: false, threshold: 500000, type: 'coins', icon: '💎' },
+    'coins_1m': { name: "Millionaire", description: "Get 1M coins", unlocked: false, threshold: 1000000, type: 'coins', icon: '💰' },
+    'coins_10m': { name: "Tycoon", description: "Get 10M coins", unlocked: false, threshold: 10000000, type: 'coins', icon: '👑' },
+    'coins_100m': { name: "Mogul", description: "Get 100M coins", unlocked: false, threshold: 100000000, type: 'coins', icon: '🏛️' },
+    'coins_1b': { name: "Billionaire", description: "Get 1B coins", unlocked: false, threshold: 1000000000, type: 'coins', icon: '🚀' },
     'ingots_1': { name: "First Ingot", description: "Get 1 ingot", unlocked: false, threshold: 1, type: 'ingots', icon: '🧱' },
     'ingots_10': { name: "Ingot Hoarder", description: "Get 10 ingots", unlocked: false, threshold: 10, type: 'ingots', icon: '🧱' },
     'ingots_100': { name: "Ingot Baron", description: "Get 100 ingots", unlocked: false, threshold: 100, type: 'ingots', icon: '🧱' },
-    'ingots_1k': { name: "Ingot King", description: "Get 1,000 ingots", unlocked: false, threshold: 1000, type: 'ingots', icon: '🌟' },
-    'ingots_10k': { name: "Ingot Lord", description: "Get 10,000 ingots", unlocked: false, threshold: 10000, type: 'ingots', icon: '🌟' },
-    'ingots_100k': { name: "Ingot God", description: "Get 100,000 ingots", unlocked: false, threshold: 100000, type: 'ingots', icon: '💎' },
-    'ingots_500k': { name: "Ingot Emperor", description: "Get 500,000 ingots", unlocked: false, threshold: 500000, type: 'ingots', icon: '👑' },
-    'ingots_1m': { name: "Ingot Overlord", description: "Get 1 Million ingots", unlocked: false, threshold: 1000000, type: 'ingots', icon: '🚀' },
+    'ingots_1k': { name: "Ingot King", description: "Get 1K ingots", unlocked: false, threshold: 1000, type: 'ingots', icon: '🌟' },
+    'ingots_10k': { name: "Ingot Lord", description: "Get 10K ingots", unlocked: false, threshold: 10000, type: 'ingots', icon: '🌟' },
+    'ingots_100k': { name: "Ingot God", description: "Get 100K ingots", unlocked: false, threshold: 100000, type: 'ingots', icon: '💎' },
+    'ingots_500k': { name: "Ingot Emperor", description: "Get 500K ingots", unlocked: false, threshold: 500000, type: 'ingots', icon: '👑' },
+    'ingots_1m': { name: "Ingot Overlord", description: "Get 1M ingots", unlocked: false, threshold: 1000000, type: 'ingots', icon: '🚀' },
     'level_5': { name: "Level Up!", description: "Get an Axolotl of level 5", unlocked: false, threshold: 5, type: 'level', icon: '⭐' },
     'level_10': { name: "Master Mergist", description: "Get an Axolotl of level 10", unlocked: false, threshold: 10, type: 'level', icon: '🏅' },
     'level_20': { name: "Axolotl Master", description: "Get an Axolotl of level 20", unlocked: false, threshold: 20, type: 'level', icon: '🏆' },
