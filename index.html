@@ -51,7 +51,7 @@
     border-radius: 20px;
     box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
   }
-  #nameInputContainer {
+  #nameInputContainer, #rightSidebar {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -61,12 +61,16 @@
     border-radius: 20px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   }
+  #rightSidebar {
+    width: 200px;
+    gap: 10px;
+  }
   #nameInputContainer label {
     font-size: 1.1em;
     font-weight: bold;
     color: #444;
   }
-  #nameInputContainer input {
+  #nameInputContainer input, #rightSidebar input {
     padding: 8px;
     width: 120px;
     margin-top: 10px;
@@ -189,6 +193,26 @@
   #saveFeedback.visible {
       opacity: 1;
   }
+  
+  /* Achievements Notification */
+  #achievementNotification {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 10px;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+      pointer-events: none;
+      font-size: 1em;
+      min-width: 200px;
+  }
+  #achievementNotification.visible {
+      opacity: 1;
+  }
+
   #modalOverlay {
       position: fixed;
       top: 0;
@@ -224,6 +248,58 @@
   #howToPlayContainer {
       margin-top: 20px;
   }
+
+  /* Achievements styles */
+  #achievementsList {
+      list-style-type: none;
+      padding: 0;
+      text-align: left;
+      /* Add these lines to make the list scrollable */
+      max-height: 400px; /* Adjust this value as needed */
+      overflow-y: auto;
+  }
+  .achievement-item {
+      display: flex;
+      align-items: center;
+      background: #eee;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+      position: relative; /* For positioning the status label */
+  }
+  .achievement-item.unlocked {
+      background: #d4edda;
+      border: 2px solid #28a745;
+  }
+  .achievement-status {
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    font-weight: bold;
+    font-size: 0.8em;
+  }
+  .achievement-status.unlocked {
+    color: #28a745;
+  }
+  .achievement-status.locked {
+    color: #ff4d4d;
+  }
+  .achievement-icon {
+      font-size: 2em;
+      margin-right: 15px;
+  }
+  .achievement-details {
+      flex-grow: 1;
+  }
+  .achievement-details h4 {
+      margin: 0 0 5px 0;
+      font-size: 1.1em;
+  }
+  .achievement-details p {
+      margin: 0;
+      font-size: 0.9em;
+  }
 </style>
 </head>
 <body>
@@ -238,9 +314,16 @@
 
 <div id="gameArea">
   <div id="grid"></div>
-  <div id="nameInputContainer">
-    <label for="axolotlNameInput">Name Axolotls</label>
-    <input type="text" id="axolotlNameInput" maxlength="7" placeholder="Name">
+  <div id="rightSidebar">
+    <div id="nameInputContainer">
+      <label for="axolotlNameInput">Name Axolotls</label>
+      <input type="text" id="axolotlNameInput" maxlength="7" placeholder="Name">
+    </div>
+    <div id="mergeAllContainer">
+      <label for="mergeLevelInput">Merge all Level:</label>
+      <input type="number" id="mergeLevelInput" min="1" max="100" value="1" style="width: 60px;">
+      <button id="mergeAllBtn" class="buy-auto-merge" style="width:100%;" onclick="mergeAllOfSelectedLevel()">Merge (200 Coins)</button>
+    </div>
   </div>
 </div>
 
@@ -259,6 +342,7 @@
 <div id="howToPlayContainer">
     <button class="save-load-btn" onclick="showModal('howToPlay')">How to Play</button>
 </div>
+<button class="save-load-btn" onclick="showModal('achievements')">View Achievements</button>
 
 <h3>Socials & Settings</h3>
 <button class="discord-btn" onclick="window.open('https://discord.gg/HhSK2VsvP5', '_blank')">Join my Discord server!</button>
@@ -270,6 +354,8 @@
 <button class="reset-btn" onclick="resetGame()">Reset Game</button>
 
 <div id="saveFeedback">Game Saved!</div>
+<div id="achievementNotification"></div>
+
 
 <!-- Combined Modal Container -->
 <div id="modalContainer" style="display:none;">
@@ -300,7 +386,8 @@
   let coinGainMultiplier = 1;
   const ingot_surprise_chance = 0.01;
   const super_merge_chance = 0.01;
-  let hasGoldBadge = false; // New variable to track the badge
+  let hasGoldBadge = false; 
+  let highestAxolotlLevel = 0;
 
   const cost_axolotl = 10;
   const cost_ingot = 1000;
@@ -310,6 +397,7 @@
   const autoMerge_costs = [1000, 2000, 5000];
   const prestige_cost = 1000000;
   const cost_gold_badge = 10000000;
+  const cost_merge_all = 200;
 
   const prestige_ingot_bonus = 5;
   const prestige_coin_bonus = 2;
@@ -330,8 +418,37 @@
   const buyGoldBadgeBtn = document.getElementById('buyGoldBadgeBtn');
   const goldBadgeSpan = document.getElementById('goldBadge');
   const saveFeedback = document.getElementById('saveFeedback');
+  const achievementNotification = document.getElementById('achievementNotification');
   const modalContainer = document.getElementById('modalContainer');
   const modalContent = document.getElementById('modalContent');
+  const mergeLevelInput = document.getElementById('mergeLevelInput');
+  const mergeAllBtn = document.getElementById('mergeAllBtn');
+
+  // Achievements data structure
+  let achievements = {
+    'coins_500': { name: "A Little Something", description: "Get 500 coins", unlocked: false, threshold: 500, type: 'coins', icon: '💰' },
+    'coins_5k': { name: "Coin Collector", description: "Get 5,000 coins", unlocked: false, threshold: 5000, type: 'coins', icon: '🪙' },
+    'coins_500k': { name: "Wealthy Axolotl", description: "Get 500,000 coins", unlocked: false, threshold: 500000, type: 'coins', icon: '💎' },
+    'coins_1m': { name: "Millionaire", description: "Get 1 Million coins", unlocked: false, threshold: 1000000, type: 'coins', icon: '💰' },
+    'coins_10m': { name: "Tycoon", description: "Get 10 Million coins", unlocked: false, threshold: 10000000, type: 'coins', icon: '👑' },
+    'coins_100m': { name: "Mogul", description: "Get 100 Million coins", unlocked: false, threshold: 100000000, type: 'coins', icon: '🏛️' },
+    'coins_1b': { name: "Billionaire", description: "Get 1 Billion coins", unlocked: false, threshold: 1000000000, type: 'coins', icon: '🚀' },
+    'ingots_1': { name: "First Ingot", description: "Get 1 ingot", unlocked: false, threshold: 1, type: 'ingots', icon: '🧱' },
+    'ingots_10': { name: "Ingot Hoarder", description: "Get 10 ingots", unlocked: false, threshold: 10, type: 'ingots', icon: '🧱' },
+    'ingots_100': { name: "Ingot Baron", description: "Get 100 ingots", unlocked: false, threshold: 100, type: 'ingots', icon: '🧱' },
+    'ingots_1k': { name: "Ingot King", description: "Get 1,000 ingots", unlocked: false, threshold: 1000, type: 'ingots', icon: '🌟' },
+    'ingots_10k': { name: "Ingot Lord", description: "Get 10,000 ingots", unlocked: false, threshold: 10000, type: 'ingots', icon: '🌟' },
+    'ingots_100k': { name: "Ingot God", description: "Get 100,000 ingots", unlocked: false, threshold: 100000, type: 'ingots', icon: '💎' },
+    'ingots_500k': { name: "Ingot Emperor", description: "Get 500,000 ingots", unlocked: false, threshold: 500000, type: 'ingots', icon: '👑' },
+    'ingots_1m': { name: "Ingot Overlord", description: "Get 1 Million ingots", unlocked: false, threshold: 1000000, type: 'ingots', icon: '🚀' },
+    'level_5': { name: "Level Up!", description: "Get an Axolotl of level 5", unlocked: false, threshold: 5, type: 'level', icon: '⭐' },
+    'level_10': { name: "Master Mergist", description: "Get an Axolotl of level 10", unlocked: false, threshold: 10, type: 'level', icon: '🏅' },
+    'level_20': { name: "Axolotl Master", description: "Get an Axolotl of level 20", unlocked: false, threshold: 20, type: 'level', icon: '🏆' },
+    'level_100': { name: "Axolotl God", description: "Get an Axolotl of level 100", unlocked: false, threshold: 100, type: 'level', icon: '🔥' },
+    'automerge': { name: "Auto-Merger", description: "Get Auto Merge", unlocked: false, threshold: 1, type: 'automerge', icon: '🤖' },
+    'prestige': { name: "Prestiged!", description: "Prestige for the first time", unlocked: false, threshold: 1, type: 'prestige', icon: '🌟' },
+    'goldbadge': { name: "Golden Axolotl", description: "Get the Gold Ingot Badge", unlocked: false, threshold: 1, type: 'goldbadge', icon: '🥇' }
+  };
 
   axolotlNameInput.addEventListener("input", e => {
     axolotlName = e.target.value.slice(0,7);
@@ -356,12 +473,12 @@
   function getAxolotlSVG(color) {
     return `
       <svg class="axolotl-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="32" cy="32" r="16" fill="${color}" stroke="black" stroke-width="2"/>
-        <line x1="16" y1="32" x2="0" y2="32" stroke="black" stroke-width="2"/>
-        <line x1="48" y1="32" x2="64" y2="32" stroke="black" stroke-width="2"/>
-        <circle cx="26" cy="28" r="3" fill="black"/>
-        <circle cx="38" cy="28" r="3" fill="black"/>
-        <path d="M26 38 Q32 46 38 38" stroke="black" stroke-width="2" fill="none"/>
+      <circle cx="32" cy="32" r="16" fill="${color}" stroke="black" stroke-width="2"/>
+      <line x1="16" y1="32" x2="0" y2="32" stroke="black" stroke-width="2"/>
+      <line x1="48" y1="32" x2="64" y2="32" stroke="black" stroke-width="2"/>
+      <circle cx="26" cy="28" r="3" fill="black"/>
+      <circle cx="38" cy="28" r="3" fill="black"/>
+      <path d="M26 38 Q32 46 38 38" stroke="black" stroke-width="2" fill="none"/>
       </svg>`;
   }
 
@@ -379,7 +496,7 @@
       gridDiv.appendChild(cell);
     });
     if (selected !== null) {
-        gridDiv.children[selected].classList.add("selected");
+      gridDiv.children[selected].classList.add("selected");
     }
   }
 
@@ -390,27 +507,25 @@
       cell.classList.add("selected");
     } else if (selected !== idx && grid[selected] === grid[idx]) {
       let newLevel = grid[selected] + 1;
-      
       // Surprise 1: Super Merge!
       if (Math.random() < super_merge_chance) {
           newLevel++;
           showSaveFeedback("🌟 Super Merge! Your axolotl skipped a level! 🌟");
       }
-      
       coins += newLevel * coinGainMultiplier;
       grid[selected] = newLevel;
       grid[idx] = 0;
-
       // Surprise 2: Gold Ingot
       if (Math.random() < ingot_surprise_chance) {
-          ingots += 1 * ingotGainMultiplier;
-          showSaveFeedback("✨ Surprise! You found a Gold Ingot! ✨");
+        ingots += 1 * ingotGainMultiplier;
+        showSaveFeedback("✨ Surprise! You found a Gold Ingot! ✨");
       }
-      
       selected = null;
+      highestAxolotlLevel = Math.max(highestAxolotlLevel, newLevel);
       updateIncome();
       renderGrid();
       updateDisplay();
+      checkAchievements();
       if (consentGiven) saveToLocalStorage();
     } else {
       selected = null;
@@ -423,324 +538,406 @@
       coins -= cost_axolotl;
       let empty = grid.map((v,i)=>v===0?i:-1).filter(i=>i!==-1);
       if (empty.length > 0) {
-        const randomIndex = Math.floor(Math.random() * empty.length);
-        grid[empty[randomIndex]] = 1;
+        let randomEmpty = empty[Math.floor(Math.random() * empty.length)];
+        grid[randomEmpty] = 1;
         updateIncome();
         renderGrid();
         updateDisplay();
         if (consentGiven) saveToLocalStorage();
       } else {
-        showDialog("No empty space on the grid!");
-        coins += cost_axolotl;
+        showSaveFeedback("No empty space! Expand your grid.");
       }
-    } else showDialog("Not enough coins to buy Axolotl");
-  }
-
-  function buyIngot() {
-    if (coins >= cost_ingot) {
-      coins -= cost_ingot;
-      ingots += 1 * ingotGainMultiplier;
-      updateDisplay();
-      if (consentGiven) saveToLocalStorage();
-    } else showDialog("Not enough coins to buy Ingot");
-  }
-  function buy10Ingots() {
-    if (coins >= cost_10_ingots) {
-      coins -= cost_10_ingots;
-      ingots += 10 * ingotGainMultiplier;
-      updateDisplay();
-      if (consentGiven) saveToLocalStorage();
-    } else showDialog("Not enough coins to buy 10 Ingots");
-  }
-  function buy100Ingots() {
-    if (coins >= cost_100_ingots) {
-      coins -= cost_100_ingots;
-      ingots += 100 * ingotGainMultiplier;
-      updateDisplay();
-      if (consentGiven) saveToLocalStorage();
-    } else showDialog("Not enough coins to buy 100 Ingots");
+    } else {
+        showSaveFeedback("Not enough coins!");
+    }
   }
   
-  // New function for buying the gold badge
-  function buyGoldBadge() {
-      if (ingots >= cost_gold_badge) {
-          ingots -= cost_gold_badge;
-          hasGoldBadge = true;
-          showSaveFeedback(`🥇 You are now the proud owner of the Gold Ingot Badge! 🥇`);
+  function buyIngot() {
+      if (coins >= cost_ingot) {
+          coins -= cost_ingot;
+          ingots += 1 * ingotGainMultiplier;
           updateDisplay();
+          checkAchievements();
           if (consentGiven) saveToLocalStorage();
       } else {
-          showDialog(`Not enough ingots for the Gold Ingot Badge. You need ${formatNumber(cost_gold_badge)} ingots.`);
+          showSaveFeedback("Not enough coins!");
+      }
+  }
+
+  function buy10Ingots() {
+      if (coins >= cost_10_ingots) {
+          coins -= cost_10_ingots;
+          ingots += 10 * ingotGainMultiplier;
+          updateDisplay();
+          checkAchievements();
+          if (consentGiven) saveToLocalStorage();
+      } else {
+          showSaveFeedback("Not enough coins!");
+      }
+  }
+
+  function buy100Ingots() {
+      if (coins >= cost_100_ingots) {
+          coins -= cost_100_ingots;
+          ingots += 100 * ingotGainMultiplier;
+          updateDisplay();
+          checkAchievements();
+          if (consentGiven) saveToLocalStorage();
+      } else {
+          showSaveFeedback("Not enough coins!");
       }
   }
 
   function expandGrid() {
-    const currentCost = expand_costs[gridSize];
-    if (gridSize < 5 && ingots >= currentCost) {
-      ingots -= currentCost;
-      gridSize++;
-      grid = grid.concat(new Array(gridSize * gridSize - grid.length).fill(0));
-      updateIncome();
-      renderGrid();
-      updateDisplay();
-      if (consentGiven) saveToLocalStorage();
-    } else if (gridSize >= 5) {
-        showDialog("Grid is already at max size.");
-    } else {
-        showDialog("Not enough ingots to expand grid");
-    }
+      const currentCost = expand_costs[gridSize];
+      if (coins >= currentCost) {
+          coins -= currentCost;
+          gridSize++;
+          grid = grid.concat(new Array(gridSize * gridSize - grid.length).fill(0));
+          expandGridBtn.textContent = `Expand Grid (Cost: ${formatNumber(expand_costs[gridSize])} Coins)`;
+          if (gridSize === 4) {
+              expandGridBtn.textContent = `Expand Grid (Cost: ${formatNumber(expand_costs[gridSize])} Coins)`;
+          } else {
+              expandGridBtn.disabled = true;
+              expandGridBtn.textContent = "Grid Max Size";
+          }
+          renderGrid();
+          updateDisplay();
+          if (consentGiven) saveToLocalStorage();
+      } else {
+          showSaveFeedback("Not enough coins to expand the grid!");
+      }
   }
 
   function buyAutoMerge() {
-    if (autoMergeLevel >= 3) return;
-    const cost = autoMerge_costs[autoMergeLevel];
-    if (ingots >= cost) {
-      ingots -= cost;
-      autoMergeLevel++;
-      if (autoMergeInterval) clearInterval(autoMergeInterval);
-      const times = [5000, 3000, 1000];
-      autoMergeInterval = setInterval(runAutoMerge, times[autoMergeLevel - 1]);
-      updateAutoMergeButton();
-      updateDisplay();
-      if (consentGiven) saveToLocalStorage();
-    } else showDialog(`Not enough ingots to buy Auto Merge Lvl ${autoMergeLevel + 1}`);
-  }
-
-  function updateAutoMergeButton() {
-    if (autoMergeLevel < 3) {
-      autoMergeBtn.textContent = `Buy Auto Merge Lvl ${autoMergeLevel + 1} (${formatNumber(autoMerge_costs[autoMergeLevel])} Ingots)`;
-      autoMergeBtn.style.display = "block";
-    } else {
-      autoMergeBtn.style.display = "none";
-    }
-  }
-
-  function runAutoMerge() {
-    if (coins >= 10 && grid.includes(0)) {
-      coins -= 10;
-      let empty = grid.map((v,i)=>v===0?i:-1).filter(i=>i!==-1);
-      if (empty.length > 0) {
-        const randomIndex = Math.floor(Math.random() * empty.length);
-        grid[empty[randomIndex]] = 1;
+      if (autoMergeLevel < 3 && ingots >= autoMerge_costs[autoMergeLevel]) {
+          ingots -= autoMerge_costs[autoMergeLevel];
+          autoMergeLevel++;
+          if (autoMergeInterval) clearInterval(autoMergeInterval);
+          autoMergeInterval = setInterval(autoMerge, 5000 - autoMergeLevel * 1000); // Faster with each level
+          autoMergeBtn.textContent = `Buy Auto Merge Lvl ${autoMergeLevel + 1} (${autoMerge_costs[autoMergeLevel]} Ingots)`;
+          if (autoMergeLevel === 3) {
+              autoMergeBtn.disabled = true;
+              autoMergeBtn.textContent = "Max Auto Merge Level";
+          }
+          updateDisplay();
+          checkAchievements();
+          if (consentGiven) saveToLocalStorage();
+      } else {
+          showSaveFeedback("Not enough ingots or max level reached!");
       }
-    }
-    if (autoMergeLevel >= 1) mergeAllOfLevel(1);
-    if (autoMergeLevel >= 2) mergeAllOfLevel(2);
-    if (autoMergeLevel >= 3) { mergeAllOfLevel(3); mergeAllOfLevel(4); }
-    updateIncome();
-    renderGrid();
-    updateDisplay();
-    if (consentGiven) saveToLocalStorage();
   }
 
-  function mergeAllOfLevel(level) {
-    let merged = true;
-    while (merged) {
-      merged = false;
-      const indices = grid.map((v, i) => v === level ? i : -1).filter(i => i !== -1);
-      if (indices.length >= 2) {
-        const first = indices[0];
-        const second = indices[1];
-        let newLevel = grid[first] + 1;
-        
-        // Surprise 1: Super Merge!
-        if (Math.random() < super_merge_chance) {
-            newLevel++;
-            showSaveFeedback("🌟 Super Merge! Your axolotl skipped a level! 🌟");
-        }
-        
-        coins += newLevel * coinGainMultiplier;
-        grid[first] = newLevel;
-        grid[second] = 0;
-        
-        // Surprise 2: Gold Ingot
-        if (Math.random() < ingot_surprise_chance) {
-            ingots += 1 * ingotGainMultiplier;
-            showSaveFeedback("✨ Surprise! You found a Gold Ingot! ✨");
-        }
-        
-        merged = true;
+  function buyGoldBadge() {
+      if (ingots >= cost_gold_badge && !hasGoldBadge) {
+          ingots -= cost_gold_badge;
+          hasGoldBadge = true;
+          goldBadgeSpan.style.display = 'inline-block';
+          buyGoldBadgeBtn.disabled = true;
+          buyGoldBadgeBtn.textContent = "Gold Ingot Badge Bought";
+          updateDisplay();
+          checkAchievements();
+          if (consentGiven) saveToLocalStorage();
+      } else {
+          showSaveFeedback("Not enough ingots or you already own the badge!");
       }
-    }
   }
 
   function prestige() {
-    if (prestigeBought) {
-        showDialog("You have already prestiged! This can only be done once.");
+      if (coins >= prestige_cost) {
+          // Calculate prestige bonus
+          let prestigeBonus = Math.floor(coins / 1000000);
+          ingotGainMultiplier += prestigeBonus * prestige_ingot_bonus;
+          coinGainMultiplier += prestigeBonus * prestige_coin_bonus;
+
+          // Reset game state
+          prestigeBought = true;
+          gridSize = 3;
+          grid = new Array(gridSize * gridSize).fill(0);
+          coins = 0;
+          ingots = 0;
+          selected = null;
+          autoMergeLevel = 0;
+          if (autoMergeInterval) clearInterval(autoMergeInterval);
+          autoMergeInterval = null;
+          highestAxolotlLevel = 0;
+
+          // Update UI and save
+          renderGrid();
+          updateIncome();
+          updateDisplay();
+          checkAchievements();
+          showSaveFeedback("Prestige successful! Your multipliers have increased!");
+          hideModal();
+          if (consentGiven) saveToLocalStorage();
+      } else {
+          showSaveFeedback("Not enough coins to prestige!");
+      }
+  }
+
+  function autoMerge() {
+      const highestLevel = grid.reduce((max, level) => Math.max(max, level), 0);
+      if (highestLevel === 0) return;
+      
+      for(let level = 1; level <= highestLevel; level++) {
+        let indices = grid.map((v, i) => v === level ? i : -1).filter(i => i !== -1);
+        while (indices.length >= 2) {
+          let idx1 = indices.pop();
+          let idx2 = indices.pop();
+          selectCell(idx1, gridDiv.children[idx1]);
+          selectCell(idx2, gridDiv.children[idx2]);
+          if (consentGiven) saveToLocalStorage();
+        }
+      }
+  }
+  
+  function mergeAllOfSelectedLevel() {
+    const levelToMerge = parseInt(mergeLevelInput.value);
+    if (coins < cost_merge_all) {
+        showSaveFeedback("Not enough coins!");
         return;
     }
-    prestigeBought = true;
-    ingotGainMultiplier = prestige_ingot_bonus;
-    coinGainMultiplier = prestige_coin_bonus;
 
-    gridSize = 3;
-    grid = new Array(gridSize * gridSize).fill(0);
-    coins = 50;
-    selected = null;
-    axolotlName = "";
-    autoMergeLevel = 0;
-    if (autoMergeInterval) clearInterval(autoMergeInterval);
-    updateAutoMergeButton();
+    if (isNaN(levelToMerge) || levelToMerge < 1) {
+        showSaveFeedback("Please enter a valid level to merge.");
+        return;
+    }
+
+    const indices = grid.map((v, i) => v === levelToMerge ? i : -1).filter(i => i !== -1);
+    if (indices.length < 2) {
+        showSaveFeedback("Not enough axolotls of that level to merge!");
+        return;
+    }
+    
+    coins -= cost_merge_all;
+    let newLevel = levelToMerge + 1;
+    let emptyCells = grid.map((v,i)=>v===0?i:-1).filter(i=>i!==-1);
+
+    if (emptyCells.length === 0) {
+        showSaveFeedback("No empty space for the new axolotl!");
+        return;
+    }
+
+    // Merging pairs of axolotls
+    for (let i = 0; i < Math.floor(indices.length / 2); i++) {
+        grid[indices[i*2]] = 0; // Clear the first axolotl
+        grid[indices[i*2 + 1]] = 0; // Clear the second axolotl
+        grid[emptyCells[i]] = newLevel; // Place the new, merged axolotl
+        coins += newLevel * coinGainMultiplier;
+        highestAxolotlLevel = Math.max(highestAxolotlLevel, newLevel);
+        if (i+1 < Math.floor(indices.length / 2) && i+1 >= emptyCells.length) {
+            showSaveFeedback("Not enough empty spaces to place all merged axolotls!");
+            break;
+        }
+    }
+    
+    // Clear any remaining axolotls from the original level
+    for (let i = Math.floor(indices.length / 2) * 2; i < indices.length; i++) {
+        grid[indices[i]] = levelToMerge; // Leave them if not enough space for merged ones
+    }
+
     updateIncome();
     renderGrid();
     updateDisplay();
+    checkAchievements();
     if (consentGiven) saveToLocalStorage();
-    hideModal();
-    showDialog(`You have prestiged! Your passive income is now multiplied by ${coinGainMultiplier}x and your ingot gain by ${ingotGainMultiplier}x.`);
   }
 
   function updateIncome() {
-    let income = grid.reduce((acc,v)=>acc+(v>0?Math.pow(2,v):0),0);
-    // Applying the passive income cap as requested
-    if (income > maxPassive) income = maxPassive;
-    incomeSpan.textContent = formatNumber(Math.floor(income * coinGainMultiplier));
-  }
-
-  function updateDisplay() {
-    coinsSpan.textContent = formatNumber(coins);
-    ingotsSpan.textContent = formatNumber(ingots);
-    multiplierDisplay.textContent = `${coinGainMultiplier}x coins, ${ingotGainMultiplier}x ingots`;
-    goldBadgeSpan.style.display = hasGoldBadge ? 'inline' : 'none';
-
-    buyAxolotlBtn.disabled = coins < cost_axolotl;
-    buyIngotBtn.disabled = coins < cost_ingot;
-    buy10IngotsBtn.disabled = coins < cost_10_ingots;
-    buy100IngotsBtn.disabled = coins < cost_100_ingots;
-    buyGoldBadgeBtn.disabled = hasGoldBadge || ingots < cost_gold_badge;
-
-    if (gridSize < 5) {
-        expandGridBtn.disabled = ingots < expand_costs[gridSize];
-        expandGridBtn.textContent = `Expand Grid (${formatNumber(expand_costs[gridSize])} Ingots)`;
-    } else {
-        expandGridBtn.disabled = true;
-        expandGridBtn.textContent = "Grid Fully Expanded";
-    }
-
-    if (autoMergeLevel < 3) {
-      autoMergeBtn.disabled = ingots < autoMerge_costs[autoMergeLevel];
-    }
-    
-    if (prestigeBought) {
-        prestigeBtn.disabled = true;
-        prestigeBtn.textContent = "Prestige Complete";
-    } else {
-        prestigeBtn.disabled = coins < prestige_cost;
-    }
+      let income = 0;
+      grid.forEach(level => {
+          income += level * coinGainMultiplier;
+      });
+      // Cap passive income
+      if (income > maxPassive) {
+        income = maxPassive;
+      }
+      incomeSpan.textContent = formatNumber(income);
   }
 
   function passiveIncomeLoop() {
-    let income = grid.reduce((acc, v) => acc + (v > 0 ? Math.pow(2, v) : 0), 0);
-    // The cap is applied here before adding to coins
-    if (income > maxPassive) income = maxPassive; 
-    coins += Math.floor(income * coinGainMultiplier);
-    updateDisplay();
-  }
-  setInterval(passiveIncomeLoop, 1000);
-
-  let feedbackTimeout;
-  function showSaveFeedback(message) {
-    clearTimeout(feedbackTimeout);
-    saveFeedback.textContent = message;
-    saveFeedback.classList.add('visible');
-    feedbackTimeout = setTimeout(() => {
-        saveFeedback.classList.remove('visible');
-    }, 2000);
+      let income = 0;
+      grid.forEach(level => {
+          income += level * coinGainMultiplier;
+      });
+      // Cap passive income
+      if (income > maxPassive) {
+        income = maxPassive;
+      }
+      coins += income;
+      updateDisplay();
+      checkAchievements();
   }
 
-  function showDialog(message) {
-      modalContent.innerHTML = `
-          <h2>Message</h2>
-          <p>${message}</p>
-          <button class="reset-btn" onclick="hideModal()">Close</button>
-      `;
-      modalContainer.style.display = 'flex';
+  function updateDisplay() {
+      coinsSpan.textContent = formatNumber(coins);
+      ingotsSpan.textContent = formatNumber(ingots);
+      multiplierDisplay.textContent = `${coinGainMultiplier}x coins, ${ingotGainMultiplier}x ingots`;
+
+      buyAxolotlBtn.textContent = `Buy Lvl 1 Axolotl (${formatNumber(cost_axolotl)} Coins)`;
+      buyAxolotlBtn.disabled = coins < cost_axolotl;
+      buyIngotBtn.textContent = `Buy Gold Ingot (${formatNumber(cost_ingot)} Coins)`;
+      buyIngotBtn.disabled = coins < cost_ingot;
+      buy10IngotsBtn.textContent = `Buy 10 Ingots (${formatNumber(cost_10_ingots)} Coins)`;
+      buy10IngotsBtn.disabled = coins < cost_10_ingots;
+      buy100IngotsBtn.textContent = `Buy 100 Ingots (${formatNumber(cost_100_ingots)} Coins)`;
+      buy100IngotsBtn.disabled = coins < cost_100_ingots;
+      mergeAllBtn.disabled = coins < cost_merge_all;
+
+      if (gridSize < 5) {
+          expandGridBtn.textContent = `Expand Grid (Cost: ${formatNumber(expand_costs[gridSize])} Coins)`;
+          expandGridBtn.disabled = coins < expand_costs[gridSize];
+      } else {
+          expandGridBtn.disabled = true;
+          expandGridBtn.textContent = "Grid Max Size";
+      }
+
+      if (autoMergeLevel < 3) {
+          autoMergeBtn.textContent = `Buy Auto Merge Lvl ${autoMergeLevel + 1} (${formatNumber(autoMerge_costs[autoMergeLevel])} Ingots)`;
+          autoMergeBtn.disabled = ingots < autoMerge_costs[autoMergeLevel];
+      } else {
+          autoMergeBtn.disabled = true;
+          autoMergeBtn.textContent = "Max Auto Merge Level";
+      }
+
+      prestigeBtn.disabled = coins < prestige_cost;
+      buyGoldBadgeBtn.disabled = hasGoldBadge || ingots < cost_gold_badge;
   }
   
-  function hideModal() {
-    modalContainer.style.display = 'none';
+  function checkAchievements() {
+    for (const key in achievements) {
+        if (!achievements[key].unlocked) {
+            let unlocked = false;
+            switch (achievements[key].type) {
+                case 'coins':
+                    unlocked = coins >= achievements[key].threshold;
+                    break;
+                case 'ingots':
+                    unlocked = ingots >= achievements[key].threshold;
+                    break;
+                case 'level':
+                    unlocked = highestAxolotlLevel >= achievements[key].threshold;
+                    break;
+                case 'automerge':
+                    unlocked = autoMergeLevel >= achievements[key].threshold;
+                    break;
+                case 'prestige':
+                    unlocked = prestigeBought;
+                    break;
+                case 'goldbadge':
+                    unlocked = hasGoldBadge;
+                    break;
+            }
+            if (unlocked) {
+                achievements[key].unlocked = true;
+                showAchievementNotification(achievements[key]);
+            }
+        }
+    }
   }
 
-  function showModal(type) {
-      if (type === 'import') {
-          modalContent.innerHTML = `
-              <h2>Import Save Data</h2>
-              <p>Paste your save ID below:</p>
-              <input type="text" id="importInput" placeholder="Paste your save ID here">
-              <button class="save-load-btn" onclick="importSaveId()">Import</button>
-              <button class="reset-btn" onclick="hideModal()">Cancel</button>
-          `;
-      } else if (type === 'consent') {
-          modalContent.innerHTML = `
-              <h2>Cookie Consent</h2>
-              <p>Do you accept cookies (local storage save)? This will allow your game to save automatically on your device and remembers your progress on this browser.</p>
-              <button class="save-load-btn" onclick="acceptCookies()">Accept</button>
-              <button class="reset-btn" onclick="startWithoutCookies()">Decline</button>
-          `;
-      } else if (type === 'prestige') {
-          if (prestigeBought) {
-              modalContent.innerHTML = `
-                  <h2>Prestige Complete</h2>
-                  <p>You have already prestiged. This can only be done once!</p>
-                  <button class="reset-btn" onclick="hideModal()">Close</button>
-              `;
-          } else {
-              modalContent.innerHTML = `
-                  <h2>Prestige</h2>
-                  <p>Are you sure you want to Prestige? This action costs ${formatNumber(prestige_cost)} coins and is irreversible. You will get permanent multipliers for your next playthrough.</p>
-                  <p>Upon prestiging, you will get **${prestige_coin_bonus}x coins** and **${prestige_ingot_bonus}x ingots** forever!</p>
-                  <button class="prestige-btn" onclick="prestige()">Prestige Now</button>
-                  <button class="reset-btn" onclick="hideModal()">Cancel</button>
-              `;
-          }
-      } else if (type === 'howToPlay') {
-          modalContent.innerHTML = `
-              <h2>How to Play</h2>
-              <p>
-                The goal is to merge axolotls of the same level to create a higher-level axolotl and earn more coins.
-                Click on an axolotl to select it, then click on another axolotl of the same level to merge them.
-              </p>
-              <h3>Game Mechanics:</h3>
-              <ul>
-                <li><strong>Passive Income:</strong> Your axolotls passively generate coins every second. The maximum passive income is capped at 5,000 coins per second.</li>
-                <li><strong>Super Merge:</strong> There is a <strong>1% chance</strong> when merging two axolotls that the new axolotl will skip a level!</li>
-                <li><strong>Gold Ingot Surprise:</strong> There is a <strong>1% chance</strong> of finding a gold ingot every time you merge.</li>
-                <li><strong>Prestige:</strong> For 1 million coins, you can Prestige once to get permanent multipliers for your next playthrough.</li>
-              </ul>
-              <button class="reset-btn" onclick="hideModal()">Close</button>
-          `;
+  function showAchievementNotification(achievement) {
+      achievementNotification.innerHTML = `
+          <h4>Achievement Unlocked!</h4>
+          <p>${achievement.icon} ${achievement.name}: ${achievement.description}</p>
+      `;
+      achievementNotification.classList.add('visible');
+      setTimeout(() => {
+          achievementNotification.classList.remove('visible');
+      }, 5000); // Hides after 5 seconds
+  }
+
+  function resetGame() {
+      const confirmReset = window.confirm("Are you sure you want to reset your game? This action cannot be undone.");
+      if (confirmReset) {
+          localStorage.removeItem("axolotlMergeGame");
+          window.location.reload();
       }
-      modalContainer.style.display = 'flex';
   }
 
-  // Local storage functions, only called if consent is given
-  function saveToLocalStorage() {
-      const saveObject = {
+  function showSaveFeedback(message) {
+      saveFeedback.textContent = message;
+      saveFeedback.classList.add('visible');
+      setTimeout(() => {
+          saveFeedback.classList.remove('visible');
+      }, 3000);
+  }
+
+  function getSaveData() {
+      const gameState = {
           grid,
+          gridSize,
           coins,
           ingots,
-          gridSize,
-          autoMergeLevel,
           axolotlName,
+          autoMergeLevel,
           prestigeBought,
           ingotGainMultiplier,
           coinGainMultiplier,
-          hasGoldBadge
+          hasGoldBadge,
+          highestAxolotlLevel,
+          achievements
       };
-      const saveData = JSON.stringify(saveObject);
+      return gameState;
+  }
+
+  function applyGameData(data) {
+      grid = data.grid || new Array(3 * 3).fill(0);
+      gridSize = data.gridSize || 3;
+      coins = data.coins || 50;
+      ingots = data.ingots || 0;
+      axolotlName = data.axolotlName || "";
+      axolotlNameInput.value = axolotlName;
+      autoMergeLevel = data.autoMergeLevel || 0;
+      prestigeBought = data.prestigeBought || false;
+      ingotGainMultiplier = data.ingotGainMultiplier || 1;
+      coinGainMultiplier = data.coinGainMultiplier || 1;
+      hasGoldBadge = data.hasGoldBadge || false;
+      highestAxolotlLevel = data.highestAxolotlLevel || 0;
+      
+      const loadedAchievements = data.achievements || {};
+      for (const key in achievements) {
+          if (loadedAchievements[key]) {
+              achievements[key] = loadedAchievements[key];
+          }
+      }
+
+      if (autoMergeInterval) clearInterval(autoMergeInterval);
+      if (autoMergeLevel > 0) {
+          autoMergeInterval = setInterval(autoMerge, 5000 - autoMergeLevel * 1000);
+      }
+      
+      if (hasGoldBadge) {
+          goldBadgeSpan.style.display = 'inline-block';
+      } else {
+          goldBadgeSpan.style.display = 'none';
+      }
+
+      renderGrid();
+      updateIncome();
+      updateDisplay();
+  }
+
+  function saveToLocalStorage() {
+      if (!consentGiven) return;
+      const gameState = getSaveData();
+      const saveData = JSON.stringify(gameState);
       const encryptedData = CryptoJS.AES.encrypt(saveData, AES_KEY).toString();
-      localStorage.setItem("axolotlSave", encryptedData);
+      localStorage.setItem("axolotlMergeGame", encryptedData);
   }
 
   function loadFromLocalStorage() {
-      const save = localStorage.getItem("axolotlSave");
-      if (save) {
+      const encryptedData = localStorage.getItem("axolotlMergeGame");
+      if (encryptedData) {
           try {
-              const decryptedData = CryptoJS.AES.decrypt(save, AES_KEY).toString(CryptoJS.enc.Utf8);
+              const decryptedBytes = CryptoJS.AES.decrypt(encryptedData, AES_KEY);
+              const decryptedData = decryptedBytes.toString(CryptoJS.enc.Utf8);
               const data = JSON.parse(decryptedData);
               applyGameData(data);
+              showSaveFeedback("Game Loaded!");
           } catch (e) {
-              console.error("Failed to parse save data:", e);
-              showDialog("Error loading game. Save data might be corrupted. Starting new game.");
+              console.error("Failed to decrypt or parse game data:", e);
+              showSaveFeedback("Failed to load game data. Starting a new game.");
               applyGameData({});
           }
       } else {
@@ -748,79 +945,8 @@
       }
   }
 
-  function applyGameData(data) {
-      grid = data.grid || new Array(3*3).fill(0);
-      coins = data.coins || 50;
-      ingots = data.ingots || 0;
-      gridSize = data.gridSize || 3;
-      autoMergeLevel = data.autoMergeLevel || 0;
-      axolotlName = data.axolotlName || "";
-      prestigeBought = data.prestigeBought || false;
-      ingotGainMultiplier = data.ingotGainMultiplier || 1;
-      coinGainMultiplier = data.coinGainMultiplier || 1;
-      hasGoldBadge = data.hasGoldBadge || false;
-
-      if (autoMergeInterval) clearInterval(autoMergeInterval);
-      if (autoMergeLevel > 0) {
-          const times = [5000, 3000, 1000];
-          autoMergeInterval = setInterval(runAutoMerge, times[autoMergeLevel - 1]);
-      }
-      axolotlNameInput.value = axolotlName;
-      updateAutoMergeButton();
-      renderGrid();
-      updateIncome();
-      updateDisplay();
-  }
-
-  function resetGame() {
-      showDialog(`Are you sure you want to reset your game? This will remove all progress (including ingots and prestige bonuses).
-      <br><br>
-      <button class="reset-btn" onclick="performReset()">Yes, Reset</button>
-      <button class="save-load-btn" onclick="hideModal()">Cancel</button>`);
-  }
-
-  function performReset() {
-      localStorage.removeItem("axolotlSave");
-      localStorage.removeItem("consentGiven");
-      location.reload();
-  }
-
-  function getGameState() {
-      return {
-          grid,
-          coins,
-          ingots,
-          gridSize,
-          autoMergeLevel,
-          axolotlName,
-          prestigeBought,
-          ingotGainMultiplier,
-          coinGainMultiplier,
-          hasGoldBadge
-      };
-  }
-
-  function importSaveId() {
-      const saveData = document.getElementById('importInput').value;
-      if (!saveData) {
-          showDialog("Please paste a valid save ID.");
-          return;
-      }
-      try {
-          const decryptedData = CryptoJS.AES.decrypt(saveData, AES_KEY).toString(CryptoJS.enc.Utf8);
-          const data = JSON.parse(decryptedData);
-          applyGameData(data);
-          if (consentGiven) saveToLocalStorage();
-          hideModal();
-          showSaveFeedback("Game imported successfully!");
-      } catch (e) {
-          console.error("Error importing data:", e);
-          showDialog("Invalid save ID. Failed to import game progress.");
-      }
-  }
-
   function copySaveData() {
-      const gameState = getGameState();
+      const gameState = getSaveData();
       const saveData = JSON.stringify(gameState);
       const encryptedData = CryptoJS.AES.encrypt(saveData, AES_KEY).toString();
 
@@ -833,11 +959,98 @@
       showSaveFeedback("Save ID copied to clipboard!");
   }
 
+  function importSaveData(encryptedData) {
+      try {
+          const decryptedBytes = CryptoJS.AES.decrypt(encryptedData, AES_KEY);
+          const decryptedData = decryptedBytes.toString(CryptoJS.enc.Utf8);
+          const data = JSON.parse(decryptedData);
+          applyGameData(data);
+          if (consentGiven) saveToLocalStorage();
+          showSaveFeedback("Save ID imported successfully!");
+      } catch (e) {
+          console.error("Failed to decrypt or parse imported data:", e);
+          showSaveFeedback("Invalid Save ID!");
+      }
+  }
+
+  function showModal(type) {
+      modalContainer.style.display = 'flex';
+      modalContent.innerHTML = ''; // Clear previous content
+
+      if (type === 'import') {
+          modalContent.innerHTML = `
+              <h2>Import Save ID</h2>
+              <p>Paste your saved game ID below.</p>
+              <input type="text" id="importInput" placeholder="Paste Save ID here...">
+              <button class="save-load-btn" onclick="importSaveData(document.getElementById('importInput').value); hideModal();">Import</button>
+              <button class="reset-btn" onclick="hideModal()">Cancel</button>
+          `;
+      } else if (type === 'prestige') {
+          modalContent.innerHTML = `
+              <h2>Prestige</h2>
+              <p>Are you sure you want to Prestige? You will lose your current game progress but gain permanent multipliers!</p>
+              <p>Current Prestige Multiplier: ${coinGainMultiplier}x coins, ${ingotGainMultiplier}x ingots</p>
+              <button class="prestige-btn" onclick="prestige()">Confirm Prestige</button>
+              <button class="reset-btn" onclick="hideModal()">Cancel</button>
+          `;
+      } else if (type === 'howToPlay') {
+          modalContent.innerHTML = `
+              <h2>How to Play</h2>
+              <p>
+                  Merge two axolotls of the same level by clicking on one and then another. The new axolotl will be one level higher and you will get coins for it.
+              </p>
+              <p>
+                  You can buy a level 1 axolotl for 10 coins. The bigger your axolotl's level is the more coins you get.
+              </p>
+              <p>
+                  Buy gold ingots to get permanent multipliers and unlock new abilities.
+              </p>
+              <p>
+                  Prestige once you have 1 million coins to start over with permanent coin and ingot multipliers.
+              </p>
+              <button class="save-load-btn" onclick="hideModal()">Got It!</button>
+          `;
+      } else if (type === 'consent') {
+          modalContent.innerHTML = `
+              <h2>Cookie Consent</h2>
+              <p>This game uses local storage to save your progress. Do you consent to using local storage?</p>
+              <p>If you decline, your progress will not be saved between sessions.</p>
+              <button class="save-load-btn" onclick="acceptCookies()">I Consent</button>
+              <button class="reset-btn" onclick="startWithoutCookies()">Decline</button>
+          `;
+      } else if (type === 'achievements') {
+          let achievementsHtml = '<h2>Achievements</h2><ul id="achievementsList">';
+          for (const key in achievements) {
+              const achievement = achievements[key];
+              const unlockedClass = achievement.unlocked ? 'unlocked' : '';
+              const statusText = achievement.unlocked ? 'Unlocked' : 'Locked';
+              const statusClass = achievement.unlocked ? 'unlocked' : 'locked';
+
+              achievementsHtml += `
+                  <li class="achievement-item ${unlockedClass}">
+                      <span class="achievement-status ${statusClass}">${statusText}</span>
+                      <span class="achievement-icon">${achievement.icon}</span>
+                      <div class="achievement-details">
+                          <h4>${achievement.name}</h4>
+                          <p>${achievement.description}</p>
+                      </div>
+                  </li>
+              `;
+          }
+          achievementsHtml += '</ul><button class="save-load-btn" onclick="hideModal()">Close</button>';
+          modalContent.innerHTML = achievementsHtml;
+      }
+  }
+
+  function hideModal() {
+      modalContainer.style.display = 'none';
+  }
+
   function acceptCookies() {
     consentGiven = true;
     localStorage.setItem("consentGiven", "true");
     hideModal();
-    loadFromLocalStorage(); // Load from local storage after accepting
+    loadFromLocalStorage(); 
     if (autoSaveInterval) clearInterval(autoSaveInterval);
     autoSaveInterval = setInterval(saveToLocalStorage, 5000);
   }
@@ -845,7 +1058,7 @@
   function startWithoutCookies() {
     consentGiven = false;
     hideModal();
-    applyGameData({}); // Start a fresh game without local storage
+    applyGameData({}); 
   }
 
   window.onload = () => {
@@ -855,9 +1068,8 @@
       loadFromLocalStorage();
       autoSaveInterval = setInterval(saveToLocalStorage, 5000);
     } else if (savedConsent === null) {
-      // Show modal on first-time load
       showModal('consent');
-      applyGameData({}); // Start a new game behind the modal
+      // No game initialization here, will be handled by modal choice
     } else { // savedConsent === "false"
       consentGiven = false;
       applyGameData({});
